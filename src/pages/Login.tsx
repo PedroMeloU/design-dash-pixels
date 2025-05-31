@@ -1,9 +1,8 @@
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { Logo } from '@/components/auth/Logo';
-import { StatusBar } from '@/components/layout/StatusBar';
-import { BottomBar } from '@/components/layout/BottomBar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -11,16 +10,24 @@ import { Button } from '@/components/ui/button';
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log('Login attempt with:', { email, password });
-    // Implement login logic here
+    // Implementar lógica de login aqui
+    navigate('/terms');
   };
 
   return (
     <main className="w-full min-h-screen bg-[#F5F7FA] flex flex-col items-center justify-center relative">
-      <StatusBar />
+      <button
+        onClick={() => navigate(-1)}
+        className="absolute top-4 left-4 p-2 text-[#1F3C88] hover:bg-white/50 rounded-lg transition-colors"
+        aria-label="Voltar"
+      >
+        <ArrowLeft size={24} />
+      </button>
       
       <section className="flex flex-col items-center justify-center flex-1 px-5 max-sm:px-4 w-full max-w-md">
         <div className="mb-12 max-sm:mb-8">
@@ -84,8 +91,6 @@ const Login: React.FC = () => {
           </div>
         </div>
       </section>
-
-      <BottomBar />
     </main>
   );
 };
