@@ -1,13 +1,24 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import React from 'react';
+import { Logo } from '@/components/auth/Logo';
+import { AuthButtons } from '@/components/auth/AuthButtons';
+import { StatusBar } from '@/components/layout/StatusBar';
+import { BottomBar } from '@/components/layout/BottomBar';
 
-const Index = () => {
+const Index: React.FC = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
-      </div>
-    </div>
+    <main className="w-full min-h-screen bg-[#F5F7FA] flex flex-col items-center justify-center relative">
+      <StatusBar />
+      
+      <section className="flex flex-col items-center justify-center flex-1 px-5 max-sm:px-4">
+        <div className="mb-16 max-sm:mb-12">
+          <Logo />
+        </div>
+        
+        <AuthButtons />
+      </section>
+
+      <BottomBar />
+    </main>
   );
 };
 
