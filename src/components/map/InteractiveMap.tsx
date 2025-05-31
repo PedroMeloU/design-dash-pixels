@@ -29,7 +29,7 @@ export const InteractiveMap: React.FC = () => {
   const defaultPosition: [number, number] = [-23.5505, -46.6333]; // São Paulo
 
   return (
-    <div style={{ height: '100vh', width: '100vw' }} className="absolute inset-0 z-0 h-screen w-screen">
+    <div className="absolute inset-0 z-0 h-screen w-screen">
       <MapContainer
         center={defaultPosition}
         zoom={13}
