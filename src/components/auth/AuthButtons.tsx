@@ -1,14 +1,16 @@
+
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export const AuthButtons: React.FC = () => {
+  const navigate = useNavigate();
+
   const handleLogin = () => {
-    // Implement login logic
-    console.log('Login clicked');
+    navigate('/login');
   };
 
   const handleSignup = () => {
-    // Implement signup logic
-    console.log('Signup clicked');
+    navigate('/signup');
   };
 
   return (
@@ -32,7 +34,7 @@ export const AuthButtons: React.FC = () => {
         className="font-normal text-2xl text-[rgba(28,28,28,0.45)] leading-[33.6px] underline hover:text-[rgba(28,28,28,0.65)] transition-colors"
         aria-label="Sign up"
       >
-        sing-up
+        sign-up
       </button>
     </div>
   );
