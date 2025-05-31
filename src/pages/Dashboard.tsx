@@ -3,7 +3,7 @@ import React from 'react';
 import { InteractiveMap } from '@/components/map/InteractiveMap';
 import { BottomNavigation } from '@/components/navigation/BottomNavigation';
 
-const Dashboard = () => {
+const Dashboard: React.FC = () => {
   console.log('Dashboard component rendering');
   
   return (
@@ -12,10 +12,14 @@ const Dashboard = () => {
         <InteractiveMap />
       </div>
       
+      {/* Overlay content */}
       <div className="relative z-10 h-full flex flex-col pointer-events-none">
+        {/* Header area - pode ser usado para futuras funcionalidades */}
         <div className="flex-1">
+          {/* Conteúdo futuro pode ser adicionado aqui */}
         </div>
         
+        {/* Bottom navigation */}
         <div className="pointer-events-auto">
           <BottomNavigation />
         </div>

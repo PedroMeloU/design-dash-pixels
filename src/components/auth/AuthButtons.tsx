@@ -2,7 +2,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export const AuthButtons = () => {
+export const AuthButtons: React.FC = () => {
   const navigate = useNavigate();
 
   const handleLogin = () => {

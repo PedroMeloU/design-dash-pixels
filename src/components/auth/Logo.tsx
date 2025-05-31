@@ -1,7 +1,6 @@
-
 import React from 'react';
 
-export const Logo = () => {
+export const Logo: React.FC = () => {
   return (
     <div className="w-[115px] h-[115px] relative">
       <div 

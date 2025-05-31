@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -8,7 +7,7 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
 // Corrigindo os ícones padrão do Leaflet
-delete L.Icon.Default.prototype._getIconUrl;
+delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,
   iconUrl: markerIcon,
@@ -26,8 +25,8 @@ const ResizeMap = () => {
   return null;
 };
 
-export const InteractiveMap = () => {
-  const defaultPosition = [-23.5505, -46.6333]; // São Paulo
+export const InteractiveMap: React.FC = () => {
+  const defaultPosition: [number, number] = [-23.5505, -46.6333]; // São Paulo
 
   return (
     <div className="absolute inset-0 z-0 h-screen w-screen">
