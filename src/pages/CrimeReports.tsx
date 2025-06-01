@@ -49,7 +49,7 @@ const CrimeReports: React.FC = () => {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 pb-24">
+      <div className="flex-1 overflow-y-auto p-4 pb-28">
         {/* Emergency Button */}
         <div className="bg-red-500 rounded-lg p-4 mb-6 shadow-sm">
           <button className="w-full flex items-center justify-center gap-3 text-white font-semibold text-lg">
@@ -89,7 +89,7 @@ const CrimeReports: React.FC = () => {
         </div>
 
         {/* Report Button */}
-        <div className="mt-6">
+        <div className="mt-6 mb-4">
           <button className="w-full bg-[#1F3C88] text-white rounded-lg py-3 font-semibold text-lg shadow-sm hover:bg-[#1a3470] transition-colors">
             Reportar Incidente
           </button>
