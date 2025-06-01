@@ -1,51 +1,60 @@
-import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
-// Corrigindo os ícones padrão do Leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-});
-
-// Componente auxiliar para forçar o redimensionamento do mapa
-const ResizeMap = () => {
-  const map = useMap();
-  useEffect(() => {
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 100);
-  }, [map]);
-  return null;
-};
+import React, { useEffect, useRef } from 'react';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 export const InteractiveMap: React.FC = () => {
-  const defaultPosition: [number, number] = [-23.5505, -46.6333]; // São Paulo
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+
+  useEffect(() => {
+    if (!mapContainer.current) return;
+
+    // Configurar token do Mapbox
+    mapboxgl.accessToken = 'pk.eyJ1IjoicGVkcm9tZWxvIiwiYSI6ImNtYmQ0NnU2ZjF1eG0ybW9kampic2l0dnIifQ.3AKo52hZMDfkH54OitiNuA';
+    
+    // Inicializar mapa
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/dark-v11', // Modo escuro
+      center: [-46.6333, -23.5505], // São Paulo
+      zoom: 13,
+      pitch: 0,
+      bearing: 0
+    });
+
+    // Adicionar controles de navegação
+    map.current.addControl(
+      new mapboxgl.NavigationControl({
+        visualizePitch: true,
+      }),
+      'top-right'
+    );
+
+    // Adicionar marcador na localização padrão
+    new mapboxgl.Marker({
+      color: '#1F3C88'
+    })
+    .setLngLat([-46.6333, -23.5505])
+    .setPopup(
+      new mapboxgl.Popup({ offset: 25 })
+        .setHTML('<div style="color: #000;">Sua localização atual</div>')
+    )
+    .addTo(map.current);
+
+    // Cleanup
+    return () => {
+      map.current?.remove();
+    };
+  }, []);
 
   return (
     <div className="absolute inset-0 z-0 h-screen w-screen">
-      <MapContainer
-        center={defaultPosition}
-        zoom={13}
+      <div 
+        ref={mapContainer} 
         className="h-full w-full"
-        zoomControl={false}
-        style={{ minHeight: '400px' }}
-      >
-        <ResizeMap />
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <Marker position={defaultPosition}>
-          <Popup>Sua localização atual</Popup>
-        </Marker>
-      </MapContainer>
+        style={{ minHeight: '100vh' }}
+      />
     </div>
   );
 };
