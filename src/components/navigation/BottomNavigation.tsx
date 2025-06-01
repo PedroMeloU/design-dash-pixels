@@ -39,25 +39,27 @@ export const BottomNavigation: React.FC = () => {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200">
-      <div className="flex items-center justify-around h-20 px-4">
-        {navItems.map((item) => {
-          const IconComponent = item.icon;
-          return (
-            <button
-              key={item.id}
-              onClick={() => navigate(item.path)}
-              className={`flex flex-col items-center justify-center space-y-1 px-3 py-2 rounded-lg transition-all duration-200 ${
-                item.isActive 
-                  ? 'bg-[#1F3C88] text-white' 
-                  : 'text-gray-500 hover:text-[#1F3C88] hover:bg-gray-50'
-              }`}
-            >
-              <IconComponent size={24} />
-              <span className="text-xs font-medium">{item.label}</span>
-            </button>
-          );
-        })}
+    <div className="fixed bottom-6 left-4 right-4 z-50">
+      <div className="bg-white/90 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20">
+        <div className="flex items-center justify-around px-6 py-3">
+          {navItems.map((item) => {
+            const IconComponent = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => navigate(item.path)}
+                className={`flex flex-col items-center justify-center space-y-1 px-4 py-3 rounded-xl transition-all duration-300 min-w-[60px] ${
+                  item.isActive 
+                    ? 'bg-[#1F3C88] text-white shadow-lg scale-105' 
+                    : 'text-gray-600 hover:text-[#1F3C88] hover:bg-gray-50/50'
+                }`}
+              >
+                <IconComponent size={22} className="stroke-[1.5]" />
+                <span className="text-xs font-medium">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
