@@ -39,23 +39,23 @@ export const BottomNavigation: React.FC = () => {
   ];
 
   return (
-    <div className="fixed bottom-6 left-6 right-6 z-[100]">
-      <div className="bg-white rounded-[20px] shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-gray-100/50 backdrop-blur-sm">
-        <div className="flex items-center justify-around px-4 py-3">
+    <div className="fixed bottom-6 left-4 right-4 z-50">
+      <div className="bg-white/90 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20">
+        <div className="flex items-center justify-around px-6 py-3">
           {navItems.map((item) => {
             const IconComponent = item.icon;
             return (
               <button
                 key={item.id}
                 onClick={() => navigate(item.path)}
-                className={`flex flex-col items-center justify-center space-y-1 px-6 py-3 rounded-[16px] transition-all duration-200 min-w-[64px] ${
+                className={`flex flex-col items-center justify-center space-y-1 px-4 py-3 rounded-xl transition-all duration-300 min-w-[60px] ${
                   item.isActive 
-                    ? 'bg-[#007AFF] text-white' 
-                    : 'text-[#8E8E93] hover:text-[#007AFF] hover:bg-[#F2F2F7]'
+                    ? 'bg-[#1F3C88] text-white shadow-lg scale-105' 
+                    : 'text-gray-600 hover:text-[#1F3C88] hover:bg-gray-50/50'
                 }`}
               >
-                <IconComponent size={20} strokeWidth={2} />
-                <span className="text-[10px] font-medium leading-tight">{item.label}</span>
+                <IconComponent size={22} className="stroke-[1.5]" />
+                <span className="text-xs font-medium">{item.label}</span>
               </button>
             );
           })}
