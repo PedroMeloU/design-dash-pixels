@@ -8,8 +8,8 @@ import L from 'leaflet';
 const fixLeafletIcons = () => {
   try {
     // Remove the default icon URL getter
-    if (L.Icon.Default.prototype._getIconUrl) {
-      delete L.Icon.Default.prototype._getIconUrl;
+    if ((L.Icon.Default.prototype as any)._getIconUrl) {
+      delete (L.Icon.Default.prototype as any)._getIconUrl;
     }
 
     // Set default icon options
@@ -41,7 +41,7 @@ const ResizeMap = () => {
 };
 
 export const InteractiveMap = () => {
-  const defaultPosition = [-23.5505, -46.6333]; // São Paulo
+  const defaultPosition: [number, number] = [-23.5505, -46.6333]; // São Paulo
 
   return (
     <div className="absolute inset-0 z-0 h-screen w-screen">
@@ -51,9 +51,6 @@ export const InteractiveMap = () => {
         className="h-full w-full"
         zoomControl={false}
         style={{ minHeight: '400px' }}
-        whenCreated={(mapInstance) => {
-          console.log('Map created successfully:', mapInstance);
-        }}
       >
         <ResizeMap />
         <TileLayer
