@@ -53,6 +53,17 @@
   @apply rounded-lg shadow-xl;
 }
 
+/* Custom popup styles */
+.custom-popup .mapboxgl-popup-content {
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.custom-popup .mapboxgl-popup-tip {
+  border-top-color: white;
+}
+
 /* Hide Mapbox logo on mobile for more space */
 @media (max-width: 640px) {
   .mapboxgl-ctrl-logo {

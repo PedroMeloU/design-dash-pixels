@@ -204,18 +204,6 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ selectedLocation
           </div>
         </div>
       )}
-
-      {/* Custom styles */}
-      <style jsx>{`
-        .custom-popup .mapboxgl-popup-content {
-          padding: 8px 12px;
-          border-radius: 8px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        .custom-popup .mapboxgl-popup-tip {
-          border-top-color: white;
-        }
-      `}</style>
     </div>
   );
 };
