@@ -1,9 +1,12 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { BottomNavigation } from '@/components/navigation/BottomNavigation';
+import { ReportIncidentModal } from '@/components/reports/ReportIncidentModal';
 import { AlertTriangle, MapPin, Clock, Phone } from 'lucide-react';
 
 const CrimeReports: React.FC = () => {
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+
   const mockReports = [
     {
       id: 1,
@@ -89,14 +92,22 @@ const CrimeReports: React.FC = () => {
         </div>
 
         {/* Report Button */}
-        <div className="mt-6 mb-4">
-          <button className="w-full bg-[#1F3C88] text-white rounded-lg py-3 font-semibold text-lg shadow-sm hover:bg-[#1a3470] transition-colors">
+        <div className="mt-6 mb-20">
+          <button 
+            onClick={() => setIsReportModalOpen(true)}
+            className="w-full bg-[#1F3C88] text-white rounded-lg py-3 font-semibold text-lg shadow-sm hover:bg-[#1a3470] transition-colors"
+          >
             Reportar Incidente
           </button>
         </div>
       </div>
 
       <BottomNavigation />
+      
+      <ReportIncidentModal 
+        isOpen={isReportModalOpen} 
+        onClose={() => setIsReportModalOpen(false)} 
+      />
     </main>
   );
 };
