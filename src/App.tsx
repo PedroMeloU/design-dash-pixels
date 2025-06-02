@@ -10,7 +10,6 @@ import Signup from "./pages/Signup";
 import Terms from "./pages/Terms";
 import GpsPermission from "./pages/GpsPermission";
 import Dashboard from "./pages/Dashboard";
-import Search from "./pages/Search";
 import CrimeReports from "./pages/CrimeReports";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
@@ -30,7 +29,6 @@ const App = () => (
           <Route path="/terms" element={<Terms />} />
           <Route path="/gps-permission" element={<GpsPermission />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/search" element={<Search />} />
           <Route path="/crime-reports" element={<CrimeReports />} />
           <Route path="/profile" element={<Profile />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

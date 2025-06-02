@@ -12,11 +12,16 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ onSearchClic
   const location = useLocation();
 
   const handleSearchClick = () => {
-    if (location.pathname === '/dashboard' && onSearchClick) {
-      onSearchClick();
-    } else {
-      navigate('/search');
+    // Sempre navegar para dashboard e abrir busca
+    if (location.pathname !== '/dashboard') {
+      navigate('/dashboard');
     }
+    // Usar timeout para garantir que o dashboard foi renderizado
+    setTimeout(() => {
+      if (onSearchClick) {
+        onSearchClick();
+      }
+    }, 100);
   };
 
   const navItems = [
@@ -32,8 +37,8 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ onSearchClic
       id: 'search',
       icon: Search,
       label: 'Buscar',
-      path: '/search',
-      isActive: location.pathname === '/search',
+      path: '/dashboard',
+      isActive: false, // Nunca ativo já que é uma ação
       onClick: handleSearchClick
     },
     {
@@ -56,22 +61,22 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ onSearchClic
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50">
-      <div className="bg-white/90 backdrop-blur-lg rounded-full shadow-2xl border border-white/20">
-        <div className="flex items-center justify-around px-4 py-2">
+      <div className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-xl border border-white/20 mx-auto max-w-sm">
+        <div className="flex items-center justify-around px-2 py-2">
           {navItems.map((item) => {
             const IconComponent = item.icon;
             return (
               <button
                 key={item.id}
                 onClick={item.onClick}
-                className={`flex flex-col items-center justify-center space-y-0.5 px-3 py-2 rounded-full transition-all duration-300 min-w-[50px] ${
+                className={`flex flex-col items-center justify-center space-y-1 px-4 py-3 rounded-xl transition-all duration-300 min-w-[60px] ${
                   item.isActive 
                     ? 'bg-[#1F3C88] text-white shadow-lg scale-105' 
-                    : 'text-gray-600 hover:text-[#1F3C88] hover:bg-gray-50/50'
+                    : 'text-gray-600 hover:text-[#1F3C88] hover:bg-gray-50/70 active:scale-95'
                 }`}
               >
-                <IconComponent size={18} className="stroke-[1.5]" />
-                <span className="text-[10px] font-medium">{item.label}</span>
+                <IconComponent size={20} className="stroke-[1.5]" />
+                <span className="text-xs font-medium">{item.label}</span>
               </button>
             );
           })}

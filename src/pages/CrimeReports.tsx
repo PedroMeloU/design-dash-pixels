@@ -43,18 +43,18 @@ const CrimeReports: React.FC = () => {
   return (
     <main className="h-screen w-full bg-[#F5F7FA] flex flex-col">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200 p-4">
-        <h1 className="text-2xl font-bold text-[#1F3C88] flex items-center gap-2">
-          <AlertTriangle size={28} />
+      <div className="bg-white shadow-sm border-b border-gray-200 p-4 pt-safe">
+        <h1 className="text-xl sm:text-2xl font-bold text-[#1F3C88] flex items-center gap-2">
+          <AlertTriangle size={24} className="sm:w-7 sm:h-7" />
           Reportes de Crimes
         </h1>
-        <p className="text-gray-600 mt-1">Acompanhe os incidentes na sua região</p>
+        <p className="text-gray-600 mt-1 text-sm sm:text-base">Acompanhe os incidentes na sua região</p>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 pb-28">
+      <div className="flex-1 overflow-y-auto p-4 pb-32">
         {/* Emergency Button */}
-        <div className="bg-red-500 rounded-lg p-4 mb-6 shadow-sm">
+        <div className="bg-red-500 rounded-xl p-4 mb-6 shadow-sm">
           <button className="w-full flex items-center justify-center gap-3 text-white font-semibold text-lg">
             <Phone size={24} />
             Emergência: 190
@@ -66,13 +66,13 @@ const CrimeReports: React.FC = () => {
           <h2 className="text-lg font-semibold text-gray-800 mb-3">Reportes Recentes</h2>
           
           {mockReports.map((report) => (
-            <div key={report.id} className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+            <div key={report.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <AlertTriangle size={20} className="text-[#1F3C88]" />
                   <h3 className="font-semibold text-gray-800">{report.type}</h3>
                 </div>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getSeverityColor(report.severity)}`}>
+                <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getSeverityColor(report.severity)}`}>
                   {report.severity === 'high' ? 'Alto' : report.severity === 'medium' ? 'Médio' : 'Baixo'}
                 </span>
               </div>
@@ -92,10 +92,10 @@ const CrimeReports: React.FC = () => {
         </div>
 
         {/* Report Button */}
-        <div className="mt-6 mb-20">
+        <div className="mt-6 mb-4">
           <button 
             onClick={() => setIsReportModalOpen(true)}
-            className="w-full bg-[#1F3C88] text-white rounded-lg py-3 font-semibold text-lg shadow-sm hover:bg-[#1a3470] transition-colors"
+            className="w-full bg-[#1F3C88] text-white rounded-xl py-4 font-semibold text-lg shadow-sm hover:bg-[#1a3470] transition-colors active:scale-98"
           >
             Reportar Incidente
           </button>
