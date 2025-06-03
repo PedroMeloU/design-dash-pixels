@@ -1,7 +1,7 @@
 
 import React from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { AuthForm } from './AuthForm';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -9,7 +9,6 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user, isLoading } = useAuth();
-  const [authMode, setAuthMode] = React.useState<'login' | 'signup'>('login');
 
   if (isLoading) {
     return (
@@ -23,14 +22,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   if (!user) {
-    return (
-      <div className="min-h-screen bg-[#F5F7FA] flex items-center justify-center p-4">
-        <AuthForm 
-          mode={authMode} 
-          onToggleMode={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')} 
-        />
-      </div>
-    );
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;

@@ -1,22 +1,79 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Chrome, Eye, EyeOff } from 'lucide-react';
 import { Logo } from '@/components/auth/Logo';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const { user } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Login attempt with:', { email, password });
-    // Implementar lógica de login aqui
-    navigate('/terms');
+    setIsLoading(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Login realizado com sucesso!",
+        description: "Bem-vindo de volta ao SigaSeguro."
+      });
+
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Login error:', error);
+      toast({
+        title: "Erro no login",
+        description: error instanceof Error ? error.message : "Erro desconhecido.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleAuth = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`
+        }
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Google auth error:', error);
+      toast({
+        title: "Erro no login com Google",
+        description: "Não foi possível fazer login com Google.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -49,7 +106,7 @@ const Login: React.FC = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
+                placeholder="Digite seu email"
                 className="border-gray-300 focus:border-[#1F3C88] focus:ring-[#1F3C88]"
                 required
               />
@@ -57,36 +114,63 @@ const Login: React.FC = () => {
             
             <div className="space-y-2">
               <Label htmlFor="password" className="text-[#1F3C88] font-medium">
-                Password
+                Senha
               </Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                className="border-gray-300 focus:border-[#1F3C88] focus:ring-[#1F3C88]"
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Digite sua senha"
+                  className="border-gray-300 focus:border-[#1F3C88] focus:ring-[#1F3C88] pr-10"
+                  required
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </Button>
+              </div>
             </div>
             
             <Button
               type="submit"
               className="w-full bg-[#1F3C88] hover:bg-[#162d66] text-white font-normal text-lg h-[57px] rounded-lg mt-6"
+              disabled={isLoading}
             >
-              Login
+              {isLoading ? 'Entrando...' : 'Login'}
             </Button>
           </form>
+
+          <div className="my-4 flex items-center">
+            <div className="flex-1 border-t border-gray-300"></div>
+            <span className="px-3 text-sm text-gray-500">ou</span>
+            <div className="flex-1 border-t border-gray-300"></div>
+          </div>
+
+          <Button 
+            onClick={handleGoogleAuth}
+            variant="outline"
+            className="w-full border-gray-300 hover:bg-gray-50"
+          >
+            <Chrome size={20} className="mr-2" />
+            Continuar com Google
+          </Button>
           
           <div className="text-center mt-6">
             <span className="text-[rgba(28,28,28,0.45)] text-lg">
-              Don't have an account?{' '}
+              Não tem uma conta?{' '}
             </span>
             <Link 
               to="/signup" 
               className="text-[rgba(28,28,28,0.45)] text-lg underline hover:text-[rgba(28,28,28,0.65)] transition-colors"
             >
-              Sign up
+              Cadastre-se
             </Link>
           </div>
         </div>
