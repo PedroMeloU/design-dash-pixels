@@ -43,7 +43,7 @@ const Dashboard: React.FC = () => {
         
         {/* Bottom navigation */}
         <div className="pointer-events-auto pb-safe">
-          <BottomNavigation onSearchClick={() => setIsSearchOpen(true)} />
+          <BottomNavigation />
         </div>
       </div>
     </main>

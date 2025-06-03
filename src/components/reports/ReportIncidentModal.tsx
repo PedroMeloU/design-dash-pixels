@@ -8,13 +8,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MapPin, Calendar, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 
 interface ReportIncidentModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const CRIME_TYPES = [
+type CrimeType = Database['public']['Enums']['crime_type'];
+
+const CRIME_TYPES: { value: CrimeType; label: string }[] = [
   { value: 'homicidio_doloso', label: 'Homicídio Doloso' },
   { value: 'latrocinio', label: 'Latrocínio' },
   { value: 'lesao_corporal_morte', label: 'Lesão Corporal seguida de Morte' },
@@ -27,7 +30,13 @@ const CRIME_TYPES = [
 ];
 
 export const ReportIncidentModal: React.FC<ReportIncidentModalProps> = ({ isOpen, onClose }) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    crime_type: CrimeType | '';
+    description: string;
+    address: string;
+    neighborhood: string;
+    occurred_at: string;
+  }>({
     crime_type: '',
     description: '',
     address: '',
@@ -73,6 +82,15 @@ export const ReportIncidentModal: React.FC<ReportIncidentModalProps> = ({ isOpen
       return;
     }
 
+    if (!formData.crime_type) {
+      toast({
+        title: "Tipo de crime necessário",
+        description: "Por favor, selecione o tipo de crime.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const { data: user } = await supabase.auth.getUser();
@@ -87,7 +105,7 @@ export const ReportIncidentModal: React.FC<ReportIncidentModalProps> = ({ isOpen
 
       const { error } = await supabase.from('crime_reports').insert({
         user_id: user.user.id,
-        crime_type: formData.crime_type,
+        crime_type: formData.crime_type as CrimeType,
         description: formData.description,
         latitude: userLocation.lat,
         longitude: userLocation.lng,
@@ -137,7 +155,7 @@ export const ReportIncidentModal: React.FC<ReportIncidentModalProps> = ({ isOpen
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="text-sm font-medium mb-2 block">Tipo de Crime</label>
-            <Select value={formData.crime_type} onValueChange={(value) => setFormData({...formData, crime_type: value})}>
+            <Select value={formData.crime_type} onValueChange={(value: CrimeType) => setFormData({...formData, crime_type: value})}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o tipo de crime" />
               </SelectTrigger>
