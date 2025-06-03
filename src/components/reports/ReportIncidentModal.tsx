@@ -144,9 +144,9 @@ export const ReportIncidentModal: React.FC<ReportIncidentModalProps> = ({ isOpen
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md bg-white z-[9999] border border-gray-200 shadow-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-gray-900">
             <AlertTriangle className="text-[#1F3C88]" size={24} />
             Reportar Incidente
           </DialogTitle>
@@ -154,14 +154,14 @@ export const ReportIncidentModal: React.FC<ReportIncidentModalProps> = ({ isOpen
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-sm font-medium mb-2 block">Tipo de Crime</label>
+            <label className="text-sm font-medium mb-2 block text-gray-700">Tipo de Crime</label>
             <Select value={formData.crime_type} onValueChange={(value: CrimeType) => setFormData({...formData, crime_type: value})}>
-              <SelectTrigger>
+              <SelectTrigger className="bg-white border-gray-300">
                 <SelectValue placeholder="Selecione o tipo de crime" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white border border-gray-200 shadow-lg z-[10000]">
                 {CRIME_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
+                  <SelectItem key={type.value} value={type.value} className="hover:bg-gray-50">
                     {type.label}
                   </SelectItem>
                 ))}
@@ -170,12 +170,12 @@ export const ReportIncidentModal: React.FC<ReportIncidentModalProps> = ({ isOpen
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-2 block">Localização</label>
+            <label className="text-sm font-medium mb-2 block text-gray-700">Localização</label>
             <Button 
               type="button" 
               variant="outline" 
               onClick={getCurrentLocation}
-              className="w-full"
+              className="w-full bg-white hover:bg-gray-50 border-gray-300"
               disabled={!!userLocation}
             >
               <MapPin size={16} className="mr-2" />
@@ -189,50 +189,54 @@ export const ReportIncidentModal: React.FC<ReportIncidentModalProps> = ({ isOpen
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-2 block">Endereço</label>
+            <label className="text-sm font-medium mb-2 block text-gray-700">Endereço</label>
             <Input
               value={formData.address}
               onChange={(e) => setFormData({...formData, address: e.target.value})}
               placeholder="Rua, número, referências..."
+              className="bg-white border-gray-300"
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-2 block">Bairro</label>
+            <label className="text-sm font-medium mb-2 block text-gray-700">Bairro</label>
             <Input
               value={formData.neighborhood}
               onChange={(e) => setFormData({...formData, neighborhood: e.target.value})}
               placeholder="Nome do bairro"
+              className="bg-white border-gray-300"
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-2 block">Data e Hora do Ocorrido</label>
+            <label className="text-sm font-medium mb-2 block text-gray-700">Data e Hora do Ocorrido</label>
             <Input
               type="datetime-local"
               value={formData.occurred_at}
               onChange={(e) => setFormData({...formData, occurred_at: e.target.value})}
+              className="bg-white border-gray-300"
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-2 block">Descrição</label>
+            <label className="text-sm font-medium mb-2 block text-gray-700">Descrição</label>
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData({...formData, description: e.target.value})}
               placeholder="Descreva o que aconteceu..."
               rows={3}
+              className="bg-white border-gray-300"
             />
           </div>
 
           <div className="flex gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1 bg-white hover:bg-gray-50 border-gray-300">
               Cancelar
             </Button>
             <Button 
               type="submit" 
               disabled={isSubmitting || !formData.crime_type || !userLocation}
-              className="flex-1 bg-[#1F3C88] hover:bg-[#1a3470]"
+              className="flex-1 bg-[#1F3C88] hover:bg-[#1a3470] text-white"
             >
               {isSubmitting ? 'Enviando...' : 'Enviar Relatório'}
             </Button>
