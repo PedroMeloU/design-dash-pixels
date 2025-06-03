@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,6 +11,7 @@ import Signup from "./pages/Signup";
 import Terms from "./pages/Terms";
 import GpsPermission from "./pages/GpsPermission";
 import Dashboard from "./pages/Dashboard";
+import Search from "./pages/Search";
 import CrimeReports from "./pages/CrimeReports";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
@@ -34,6 +34,11 @@ const App = () => (
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/search" element={
+              <ProtectedRoute>
+                <Search />
               </ProtectedRoute>
             } />
             <Route path="/crime-reports" element={

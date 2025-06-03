@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, AlertTriangle, User, MapPin } from 'lucide-react';
+import { Home, Search, AlertTriangle, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 export const BottomNavigation: React.FC = () => {
@@ -11,7 +11,7 @@ export const BottomNavigation: React.FC = () => {
 
   const navItems = [
     { icon: Home, label: 'Início', path: '/dashboard' },
-    { icon: MapPin, label: 'Mapa', path: '/' },
+    { icon: Search, label: 'Buscar', path: '/search' },
     { icon: AlertTriangle, label: 'Reportes', path: '/crime-reports' },
     { icon: User, label: 'Perfil', path: '/profile' },
   ];
