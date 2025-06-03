@@ -1,87 +1,60 @@
 
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Search, AlertTriangle, User } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Home, AlertTriangle, User, MapPin } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
-interface BottomNavigationProps {
-  onSearchClick?: () => void;
-}
-
-export const BottomNavigation: React.FC<BottomNavigationProps> = ({ onSearchClick }) => {
-  const navigate = useNavigate();
+export const BottomNavigation: React.FC = () => {
   const location = useLocation();
-
-  const handleSearchClick = () => {
-    // Sempre navegar para dashboard e abrir busca
-    if (location.pathname !== '/dashboard') {
-      navigate('/dashboard');
-    }
-    // Usar timeout para garantir que o dashboard foi renderizado
-    setTimeout(() => {
-      if (onSearchClick) {
-        onSearchClick();
-      }
-    }, 100);
-  };
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
 
   const navItems = [
-    {
-      id: 'home',
-      icon: Home,
-      label: 'Home',
-      path: '/dashboard',
-      isActive: location.pathname === '/dashboard',
-      onClick: () => navigate('/dashboard')
-    },
-    {
-      id: 'search',
-      icon: Search,
-      label: 'Buscar',
-      path: '/dashboard',
-      isActive: false, // Nunca ativo já que é uma ação
-      onClick: handleSearchClick
-    },
-    {
-      id: 'reports',
-      icon: AlertTriangle,
-      label: 'Reportes',
-      path: '/crime-reports',
-      isActive: location.pathname === '/crime-reports',
-      onClick: () => navigate('/crime-reports')
-    },
-    {
-      id: 'profile',
-      icon: User,
-      label: 'Perfil',
-      path: '/profile',
-      isActive: location.pathname === '/profile',
-      onClick: () => navigate('/profile')
-    }
+    { icon: Home, label: 'Início', path: '/dashboard' },
+    { icon: MapPin, label: 'Mapa', path: '/' },
+    { icon: AlertTriangle, label: 'Reportes', path: '/crime-reports' },
+    { icon: User, label: 'Perfil', path: '/profile' },
   ];
 
+  const isActive = (path: string) => location.pathname === path;
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/');
+  };
+
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50">
-      <div className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-xl border border-white/20 mx-auto max-w-sm">
-        <div className="flex items-center justify-around px-2 py-2">
-          {navItems.map((item) => {
-            const IconComponent = item.icon;
-            return (
-              <button
-                key={item.id}
-                onClick={item.onClick}
-                className={`flex flex-col items-center justify-center space-y-1 px-4 py-3 rounded-xl transition-all duration-300 min-w-[60px] ${
-                  item.isActive 
-                    ? 'bg-[#1F3C88] text-white shadow-lg scale-105' 
-                    : 'text-gray-600 hover:text-[#1F3C88] hover:bg-gray-50/70 active:scale-95'
-                }`}
-              >
-                <IconComponent size={20} className="stroke-[1.5]" />
-                <span className="text-xs font-medium">{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 safe-area-bottom">
+      <div className="flex justify-around items-center py-2 px-4">
+        {navItems.map(({ icon: Icon, label, path }) => (
+          <button
+            key={path}
+            onClick={() => handleNavigation(path)}
+            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+              isActive(path)
+                ? 'text-[#1F3C88] bg-blue-50'
+                : 'text-gray-500 hover:text-[#1F3C88]'
+            }`}
+          >
+            <Icon size={20} />
+            <span className="text-xs mt-1 font-medium">{label}</span>
+          </button>
+        ))}
+        
+        <button
+          onClick={handleLogout}
+          className="flex flex-col items-center py-2 px-3 rounded-lg transition-colors text-red-500 hover:text-red-600 hover:bg-red-50"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          <span className="text-xs mt-1 font-medium">Sair</span>
+        </button>
       </div>
-    </div>
+    </nav>
   );
 };

@@ -9,7 +9,90 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      crime_reports: {
+        Row: {
+          address: string | null
+          created_at: string
+          crime_type: Database["public"]["Enums"]["crime_type"]
+          description: string | null
+          id: string
+          latitude: number
+          longitude: number
+          neighborhood: string | null
+          occurred_at: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          crime_type: Database["public"]["Enums"]["crime_type"]
+          description?: string | null
+          id?: string
+          latitude: number
+          longitude: number
+          neighborhood?: string | null
+          occurred_at?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          crime_type?: Database["public"]["Enums"]["crime_type"]
+          description?: string | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          neighborhood?: string | null
+          occurred_at?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      safety_index: {
+        Row: {
+          city: string
+          created_at: string
+          crime_count: number
+          id: string
+          last_calculated: string
+          latitude: number | null
+          longitude: number | null
+          neighborhood: string
+          safety_percentage: number
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          city?: string
+          created_at?: string
+          crime_count?: number
+          id?: string
+          last_calculated?: string
+          latitude?: number | null
+          longitude?: number | null
+          neighborhood: string
+          safety_percentage?: number
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          city?: string
+          created_at?: string
+          crime_count?: number
+          id?: string
+          last_calculated?: string
+          latitude?: number | null
+          longitude?: number | null
+          neighborhood?: string
+          safety_percentage?: number
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +101,16 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      crime_type:
+        | "homicidio_doloso"
+        | "latrocinio"
+        | "lesao_corporal_morte"
+        | "roubo_transeunte"
+        | "estupro"
+        | "tentativa_homicidio"
+        | "furto"
+        | "roubo_veiculo"
+        | "outros"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +225,18 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      crime_type: [
+        "homicidio_doloso",
+        "latrocinio",
+        "lesao_corporal_morte",
+        "roubo_transeunte",
+        "estupro",
+        "tentativa_homicidio",
+        "furto",
+        "roubo_veiculo",
+        "outros",
+      ],
+    },
   },
 } as const
