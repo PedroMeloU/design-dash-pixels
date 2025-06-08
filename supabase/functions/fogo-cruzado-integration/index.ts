@@ -18,8 +18,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Authenticate with Fogo Cruzado API
-    const authResponse = await fetch('https://api.fogocruzado.org.br/api/v2/auth/login', {
+    // Authenticate with Fogo Cruzado API using the new endpoint
+    const authResponse = await fetch('https://api-service.fogocruzado.org.br/api/v2/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -35,7 +35,9 @@ serve(async (req) => {
     }
 
     const authData = await authResponse.json()
-    const token = authData.access_token
+    const token = authData.data.accessToken
+
+    console.log('Authentication successful, token received')
 
     // Get current date and date from 30 days ago for the query
     const endDate = new Date().toISOString().split('T')[0]
