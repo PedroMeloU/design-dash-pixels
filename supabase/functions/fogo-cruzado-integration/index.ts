@@ -43,9 +43,9 @@ serve(async (req) => {
     const endDate = new Date().toISOString().split('T')[0]
     const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-    // Fetch incidents from Fogo Cruzado API
+    // Fetch incidents from Fogo Cruzado API - using the correct API service endpoint
     const incidentsResponse = await fetch(
-      `https://api.fogocruzado.org.br/api/v2/occurrences?initialdate=${startDate}&finaldate=${endDate}&state=BA&limit=1000`,
+      `https://api-service.fogocruzado.org.br/api/v2/occurrences?initialdate=${startDate}&finaldate=${endDate}&state=BA&limit=1000`,
       {
         headers: {
           'Authorization': `Bearer ${token}`,
