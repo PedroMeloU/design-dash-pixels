@@ -1,172 +1,136 @@
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-interface FogoCruzadoIncident {
-  id: string;
-  date: string;
-  state: string;
-  city: string;
-  neighborhood: string;
-  latitude: number;
-  longitude: number;
-  deaths: number;
-  wounded: number;
-  incident_type: string;
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    console.log("Starting Fogo Cruzado integration...");
-
-    // Initialize Supabase client
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
 
     // Authenticate with Fogo Cruzado API
-    console.log("Authenticating with Fogo Cruzado API...");
-    const authResponse = await fetch("https://api.fogocruzado.org.br/api/auth/login", {
-      method: "POST",
+    const authResponse = await fetch('https://api.fogocruzado.org.br/api/v2/auth/login', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        email: "pedrohenrique.melo@ucsal.edu.br",
-        password: "Pl1234ll.@",
-      }),
-    });
+        email: 'pedrohenrique.melo@ucsal.edu.br',
+        password: 'Pl1234ll.@'
+      })
+    })
 
     if (!authResponse.ok) {
-      throw new Error(`Authentication failed: ${authResponse.status}`);
+      throw new Error('Failed to authenticate with Fogo Cruzado API')
     }
 
-    const authData = await authResponse.json();
-    const token = authData.access_token;
-    console.log("Authentication successful");
+    const authData = await authResponse.json()
+    const token = authData.access_token
 
-    // Fetch incidents from Salvador, BA (last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const startDate = thirtyDaysAgo.toISOString().split('T')[0];
-    const endDate = new Date().toISOString().split('T')[0];
+    // Get current date and date from 30 days ago for the query
+    const endDate = new Date().toISOString().split('T')[0]
+    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-    console.log(`Fetching incidents from ${startDate} to ${endDate}...`);
+    // Fetch incidents from Fogo Cruzado API
     const incidentsResponse = await fetch(
-      `https://api.fogocruzado.org.br/api/incidents?state=BA&city=Salvador&start_date=${startDate}&end_date=${endDate}`,
+      `https://api.fogocruzado.org.br/api/v2/occurrences?initialdate=${startDate}&finaldate=${endDate}&state=BA&limit=1000`,
       {
         headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
       }
-    );
+    )
 
     if (!incidentsResponse.ok) {
-      throw new Error(`Failed to fetch incidents: ${incidentsResponse.status}`);
+      throw new Error('Failed to fetch incidents from Fogo Cruzado API')
     }
 
-    const incidentsData = await incidentsResponse.json();
-    const incidents: FogoCruzadoIncident[] = incidentsData.data || [];
+    const incidentsData = await incidentsResponse.json()
+    const incidents = incidentsData.data || []
+
+    console.log(`Fetched ${incidents.length} incidents from Fogo Cruzado API`)
+
+    // Process and store incidents in our database
+    const processedIncidents = []
     
-    console.log(`Found ${incidents.length} incidents`);
+    for (const incident of incidents) {
+      try {
+        // Check if incident already exists
+        const { data: existingIncident } = await supabaseClient
+          .from('fogo_cruzado_incidents')
+          .select('id')
+          .eq('external_id', incident.id.toString())
+          .single()
 
-    // Process incidents and update safety index by neighborhood
-    const neighborhoodStats = new Map<string, {
-      incidents: number;
-      deaths: number;
-      wounded: number;
-      weight: number;
-    }>();
+        if (existingIncident) {
+          continue // Skip if already exists
+        }
 
-    incidents.forEach((incident) => {
-      const neighborhood = incident.neighborhood || 'Não informado';
-      const stats = neighborhoodStats.get(neighborhood) || {
-        incidents: 0,
-        deaths: 0,
-        wounded: 0,
-        weight: 0
-      };
+        const processedIncident = {
+          external_id: incident.id.toString(),
+          incident_type: incident.occurrence_type?.name || 'Não especificado',
+          date: incident.date,
+          latitude: incident.latitude ? parseFloat(incident.latitude) : null,
+          longitude: incident.longitude ? parseFloat(incident.longitude) : null,
+          address: incident.address || null,
+          neighborhood: incident.neighborhood?.name || null,
+          city: incident.city?.name || null,
+          state: incident.state?.name || null,
+          deaths: incident.deaths || 0,
+          wounded: incident.wounded || 0,
+          description: incident.description || null
+        }
 
-      stats.incidents += 1;
-      stats.deaths += incident.deaths || 0;
-      stats.wounded += incident.wounded || 0;
-      // Weight: 5 for deaths, 3 for wounded, 2 for incidents
-      stats.weight += (incident.deaths * 5) + (incident.wounded * 3) + 2;
+        const { error } = await supabaseClient
+          .from('fogo_cruzado_incidents')
+          .insert(processedIncident)
 
-      neighborhoodStats.set(neighborhood, stats);
-    });
-
-    // Find max weight for normalization
-    let maxWeight = 0;
-    neighborhoodStats.forEach(stats => {
-      if (stats.weight > maxWeight) {
-        maxWeight = stats.weight;
-      }
-    });
-
-    console.log(`Processing ${neighborhoodStats.size} neighborhoods, max weight: ${maxWeight}`);
-
-    // Update safety index for each neighborhood
-    for (const [neighborhood, stats] of neighborhoodStats) {
-      const safetyPercentage = maxWeight > 0 ? 100 - ((stats.weight / maxWeight) * 100) : 50;
-      
-      console.log(`Updating ${neighborhood}: ${safetyPercentage.toFixed(2)}% safety`);
-
-      const { error } = await supabaseClient
-        .from('safety_index')
-        .upsert({
-          neighborhood,
-          city: 'Salvador',
-          state: 'BA',
-          safety_percentage: Math.round(safetyPercentage * 100) / 100,
-          crime_count: stats.incidents,
-          last_calculated: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'neighborhood,city,state'
-        });
-
-      if (error) {
-        console.error(`Error updating ${neighborhood}:`, error);
+        if (error) {
+          console.error('Error inserting incident:', error)
+        } else {
+          processedIncidents.push(processedIncident)
+        }
+      } catch (error) {
+        console.error('Error processing incident:', error)
       }
     }
 
-    console.log("Fogo Cruzado integration completed successfully");
+    console.log(`Successfully processed ${processedIncidents.length} new incidents`)
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Processed ${incidents.length} incidents across ${neighborhoodStats.size} neighborhoods`,
-        neighborhoods_updated: Array.from(neighborhoodStats.keys()),
+      JSON.stringify({ 
+        success: true, 
+        message: `Successfully processed ${processedIncidents.length} new incidents`,
+        total_fetched: incidents.length,
+        new_incidents: processedIncidents.length
       }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200 
       }
-    );
+    )
 
   } catch (error) {
-    console.error("Error in Fogo Cruzado integration:", error);
+    console.error('Error in fogo-cruzado-integration:', error)
     return new Response(
-      JSON.stringify({
-        error: error.message,
-        success: false,
+      JSON.stringify({ 
+        error: error.message || 'Internal server error' 
       }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500 
       }
-    );
+    )
   }
-});
+})

@@ -3,12 +3,15 @@ import React, { useState } from 'react';
 import { InteractiveMap } from '@/components/map/InteractiveMap';
 import { BottomNavigation } from '@/components/navigation/BottomNavigation';
 import { SearchHeader } from '@/components/search/SearchHeader';
+import { UpdateDataButton } from '@/components/map/UpdateDataButton';
 import { useGeolocation } from '@/hooks/useGeolocation';
+import { useFogoCruzadoData } from '@/hooks/useFogoCruzadoData';
 
 const Dashboard: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{ center: [number, number]; name: string } | null>(null);
   const location = useGeolocation();
+  const { updateFogoCruzadoData, isUpdating } = useFogoCruzadoData();
   
   console.log('Dashboard component rendering');
   
@@ -25,6 +28,12 @@ const Dashboard: React.FC = () => {
       <div className="absolute inset-0">
         <InteractiveMap selectedLocation={selectedLocation} />
       </div>
+      
+      {/* Update Data Button */}
+      <UpdateDataButton 
+        onUpdate={updateFogoCruzadoData} 
+        isUpdating={isUpdating} 
+      />
       
       {/* Search Header */}
       <SearchHeader 

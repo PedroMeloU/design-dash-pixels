@@ -2,6 +2,8 @@
 import React, { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { IncidentMarkers } from './IncidentMarkers';
+import { useFogoCruzadoData } from '@/hooks/useFogoCruzadoData';
 
 interface GeolocationState {
   latitude: number | null;
@@ -27,6 +29,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const map = useRef<mapboxgl.Map | null>(null);
   const userMarker = useRef<mapboxgl.Marker | null>(null);
   const selectedMarker = useRef<mapboxgl.Marker | null>(null);
+  
+  const { incidents } = useFogoCruzadoData();
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -200,10 +204,13 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   }, [selectedLocation]);
 
   return (
-    <div 
-      ref={mapContainer} 
-      className="h-full w-full"
-      style={{ minHeight: '100vh' }}
-    />
+    <div className="relative h-full w-full">
+      <div 
+        ref={mapContainer} 
+        className="h-full w-full"
+        style={{ minHeight: '100vh' }}
+      />
+      <IncidentMarkers map={map.current} incidents={incidents} />
+    </div>
   );
 };

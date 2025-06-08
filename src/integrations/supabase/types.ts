@@ -51,6 +51,60 @@ export type Database = {
         }
         Relationships: []
       }
+      fogo_cruzado_incidents: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string
+          date: string
+          deaths: number | null
+          description: string | null
+          external_id: string
+          id: string
+          incident_type: string
+          latitude: number | null
+          longitude: number | null
+          neighborhood: string | null
+          state: string | null
+          updated_at: string
+          wounded: number | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          date: string
+          deaths?: number | null
+          description?: string | null
+          external_id: string
+          id?: string
+          incident_type: string
+          latitude?: number | null
+          longitude?: number | null
+          neighborhood?: string | null
+          state?: string | null
+          updated_at?: string
+          wounded?: number | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          date?: string
+          deaths?: number | null
+          description?: string | null
+          external_id?: string
+          id?: string
+          incident_type?: string
+          latitude?: number | null
+          longitude?: number | null
+          neighborhood?: string | null
+          state?: string | null
+          updated_at?: string
+          wounded?: number | null
+        }
+        Relationships: []
+      }
       safety_index: {
         Row: {
           city: string
