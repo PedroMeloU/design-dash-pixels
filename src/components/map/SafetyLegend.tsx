@@ -40,16 +40,16 @@ export const SafetyLegend: React.FC<SafetyLegendProps> = ({ isVisible = true }) 
   if (!isVisible) return null;
 
   return (
-    <div className="absolute bottom-20 left-4 z-20 bg-white rounded-lg shadow-lg p-4 max-w-xs">
-      <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+    <div className="absolute bottom-24 right-4 z-10 bg-white rounded-lg shadow-lg p-3 max-w-xs border border-gray-200">
+      <h3 className="text-sm font-semibold text-gray-800 mb-2 flex items-center">
         📊 Índice de Segurança
       </h3>
       
-      <div className="space-y-2">
+      <div className="space-y-1">
         {safetyLevels.map((level, index) => (
-          <div key={index} className="flex items-center space-x-3">
+          <div key={index} className="flex items-center space-x-2">
             <div 
-              className="w-4 h-4 rounded-full border-2 border-white shadow-sm"
+              className="w-3 h-3 rounded-full border border-white shadow-sm"
               style={{ backgroundColor: level.color }}
             />
             <span className="text-xs">{level.icon}</span>
@@ -65,7 +65,7 @@ export const SafetyLegend: React.FC<SafetyLegendProps> = ({ isVisible = true }) 
         ))}
       </div>
       
-      <div className="mt-3 pt-3 border-t border-gray-200">
+      <div className="mt-2 pt-2 border-t border-gray-200">
         <p className="text-xs text-gray-500">
           Baseado em dados do Fogo Cruzado dos últimos 6 meses
         </p>

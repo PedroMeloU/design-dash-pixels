@@ -20,83 +20,124 @@ const authenticateWithFogoCruzado = async (): Promise<string> => {
 
   console.log('Authenticating with Fogo Cruzado API...');
   
-  const authResponse = await fetch('https://api-service.fogocruzado.org.br/api/v2/auth/login', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      email: 'pedrohenrique.melo@ucsal.edu.br',
-      password: 'Pl1234ll.@'
-    })
-  });
+  try {
+    const authResponse = await fetch('https://api-service.fogocruzado.org.br/api/v2/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: 'pedrohenrique.melo@ucsal.edu.br',
+        password: 'Pl1234ll.@'
+      })
+    });
 
-  if (!authResponse.ok) {
-    throw new Error(`Authentication failed: ${authResponse.status} ${authResponse.statusText}`);
+    console.log('Auth response status:', authResponse.status);
+    console.log('Auth response headers:', Object.fromEntries(authResponse.headers.entries()));
+
+    if (!authResponse.ok) {
+      const errorText = await authResponse.text();
+      console.error('Authentication failed:', authResponse.status, errorText);
+      throw new Error(`Authentication failed: ${authResponse.status} - ${errorText}`);
+    }
+
+    const authData = await authResponse.json();
+    console.log('Auth response data:', authData);
+    
+    // Verificar se a resposta tem a estrutura esperada conforme documentação
+    if (!authData.data?.accessToken) {
+      console.error('Invalid authentication response structure:', authData);
+      throw new Error('Invalid authentication response: missing accessToken');
+    }
+
+    cachedToken = authData.data.accessToken;
+    // Usar expiresIn da resposta se disponível, senão usar 1 hora por padrão
+    const expiresInSeconds = authData.data.expiresIn || 3600;
+    tokenExpiry = Date.now() + (expiresInSeconds * 1000);
+    
+    console.log('Authentication successful, token expires in:', expiresInSeconds, 'seconds');
+    return cachedToken;
+  } catch (error) {
+    console.error('Error during authentication:', error);
+    throw new Error(`Authentication error: ${error.message}`);
   }
-
-  const authData = await authResponse.json();
-  
-  if (!authData.success || !authData.data?.accessToken) {
-    throw new Error('Invalid authentication response');
-  }
-
-  cachedToken = authData.data.accessToken;
-  // Definir expiração do token para 1 hora
-  tokenExpiry = Date.now() + 3600000;
-  
-  console.log('Authentication successful');
-  return cachedToken;
 };
 
 const refreshToken = async (currentToken: string): Promise<string> => {
   console.log('Refreshing token...');
   
-  const refreshResponse = await fetch('https://api-service.fogocruzado.org.br/api/v2/auth/refresh', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${currentToken}`,
-      'Content-Type': 'application/json',
+  try {
+    const refreshResponse = await fetch('https://api-service.fogocruzado.org.br/api/v2/auth/refresh', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${currentToken}`,
+        'Content-Type': 'application/json',
+      }
+    });
+
+    console.log('Refresh response status:', refreshResponse.status);
+
+    if (!refreshResponse.ok) {
+      console.log('Token refresh failed, re-authenticating...');
+      return await authenticateWithFogoCruzado();
     }
-  });
 
-  if (!refreshResponse.ok) {
-    console.log('Token refresh failed, re-authenticating...');
-    return await authenticateWithFogoCruzado();
+    const refreshData = await refreshResponse.json();
+    console.log('Refresh response data:', refreshData);
+    
+    if (refreshData.data?.accessToken) {
+      cachedToken = refreshData.data.accessToken;
+      const expiresInSeconds = refreshData.data.expiresIn || 3600;
+      tokenExpiry = Date.now() + (expiresInSeconds * 1000);
+      console.log('Token refreshed successfully');
+      return cachedToken;
+    }
+    
+    throw new Error('Token refresh failed: invalid response');
+  } catch (error) {
+    console.error('Error during token refresh:', error);
+    throw new Error(`Token refresh error: ${error.message}`);
   }
-
-  const refreshData = await refreshResponse.json();
-  
-  if (refreshData.success && refreshData.data?.accessToken) {
-    cachedToken = refreshData.data.accessToken;
-    tokenExpiry = Date.now() + 3600000;
-    console.log('Token refreshed successfully');
-    return cachedToken;
-  }
-  
-  throw new Error('Token refresh failed');
 };
 
 const fetchWithAuth = async (url: string, token: string, retryCount = 0): Promise<any> => {
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
+  console.log(`Making request to: ${url}`);
+  
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      }
+    });
+
+    console.log(`Response status for ${url}:`, response.status);
+
+    // Se o token expirou, tentar renovar
+    if (response.status === 401 && retryCount === 0) {
+      console.log('Token expired, attempting refresh...');
+      const newToken = await refreshToken(token);
+      return fetchWithAuth(url, newToken, 1);
     }
-  });
 
-  // Se o token expirou, tentar renovar
-  if (response.status === 401 && retryCount === 0) {
-    console.log('Token expired, attempting refresh...');
-    const newToken = await refreshToken(token);
-    return fetchWithAuth(url, newToken, 1);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`API request failed for ${url}:`, response.status, errorText);
+      throw new Error(`API request failed: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log(`Response data structure for ${url}:`, {
+      hasData: !!data.data,
+      dataLength: Array.isArray(data.data) ? data.data.length : 'not array',
+      msg: data.msg
+    });
+    
+    return data;
+  } catch (error) {
+    console.error(`Error fetching ${url}:`, error);
+    throw error;
   }
-
-  if (!response.ok) {
-    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-  }
-
-  return response.json();
 };
 
 const calculateSafetyPercentage = (crimeCount: number, populationFactor: number = 1000): number => {
@@ -124,25 +165,40 @@ serve(async (req) => {
     // Autenticar com a API do Fogo Cruzado
     const token = await authenticateWithFogoCruzado();
 
-    // Buscar dados de estados e cidades para mapear bairros
-    console.log('Fetching states and cities data...');
+    // Buscar dados de estados conforme documentação
+    console.log('Fetching states data...');
     const statesData = await fetchWithAuth('https://api-service.fogocruzado.org.br/api/v2/states', token);
     
-    // Encontrar a Bahia
-    const bahiaState = statesData.data?.find((state: any) => state.name === 'Bahia' || state.acronym === 'BA');
+    // Encontrar a Bahia na resposta
+    const bahiaState = statesData.data?.find((state: any) => 
+      state.name?.toLowerCase().includes('bahia') || state.name === 'Bahia'
+    );
+    
     if (!bahiaState) {
-      throw new Error('Bahia state not found');
+      console.error('Available states:', statesData.data?.map((s: any) => s.name));
+      throw new Error('Bahia state not found in API response');
     }
 
+    console.log('Found Bahia state:', bahiaState);
+
+    // Buscar cidades da Bahia usando o parâmetro state conforme documentação
+    console.log('Fetching cities data for Bahia...');
     const citiesData = await fetchWithAuth(`https://api-service.fogocruzado.org.br/api/v2/cities?state=${bahiaState.id}`, token);
     
     // Encontrar Salvador
-    const salvadorCity = citiesData.data?.find((city: any) => city.name === 'Salvador');
+    const salvadorCity = citiesData.data?.find((city: any) => 
+      city.name?.toLowerCase().includes('salvador') || city.name === 'Salvador'
+    );
+    
     if (!salvadorCity) {
-      throw new Error('Salvador city not found');
+      console.error('Available cities in Bahia:', citiesData.data?.map((c: any) => c.name));
+      throw new Error('Salvador city not found in API response');
     }
 
+    console.log('Found Salvador city:', salvadorCity);
+
     // Buscar bairros de Salvador
+    console.log('Fetching neighborhoods data for Salvador...');
     const neighborhoodsData = await fetchWithAuth(`https://api-service.fogocruzado.org.br/api/v2/neighborhoods?city=${salvadorCity.id}`, token);
 
     // Definir período para buscar ocorrências (últimos 6 meses)
@@ -151,23 +207,27 @@ serve(async (req) => {
 
     console.log(`Fetching occurrences from ${startDate} to ${endDate}...`);
 
-    // Buscar ocorrências com paginação
+    // Buscar ocorrências com paginação conforme documentação
     let allOccurrences: any[] = [];
     let page = 1;
-    const limit = 1000;
+    const take = 1000; // Usar 'take' conforme documentação
     let hasMoreData = true;
 
     while (hasMoreData) {
-      const occurrencesUrl = `https://api-service.fogocruzado.org.br/api/v2/occurrences?initialdate=${startDate}&finaldate=${endDate}&state=${bahiaState.id}&city=${salvadorCity.id}&limit=${limit}&page=${page}`;
+      const occurrencesUrl = `https://api-service.fogocruzado.org.br/api/v2/occurrences?initialdate=${startDate}&finaldate=${endDate}&idState=${bahiaState.id}&idCities=${salvadorCity.id}&page=${page}&take=${take}`;
       
-      const occurrencesData = await fetchWithAuth(occurrencesUrl, token);
+      console.log(`Fetching page ${page} of occurrences...`);
+      const occurrencesResponse = await fetchWithAuth(occurrencesUrl, token);
       
-      if (occurrencesData.data && occurrencesData.data.length > 0) {
-        allOccurrences = allOccurrences.concat(occurrencesData.data);
+      if (occurrencesResponse.data && occurrencesResponse.data.length > 0) {
+        allOccurrences = allOccurrences.concat(occurrencesResponse.data);
         page++;
         
-        // Se retornou menos que o limite, provavelmente é a última página
-        if (occurrencesData.data.length < limit) {
+        // Verificar se há mais páginas usando pageMeta conforme documentação
+        const pageMeta = occurrencesResponse.pageMeta;
+        if (pageMeta && !pageMeta.hasNextPage) {
+          hasMoreData = false;
+        } else if (occurrencesResponse.data.length < take) {
           hasMoreData = false;
         }
       } else {
@@ -193,9 +253,20 @@ serve(async (req) => {
           continue; // Pular se já existe
         }
 
+        // Contar mortos e feridos das vítimas
+        let deaths = 0;
+        let wounded = 0;
+        
+        if (incident.victims && Array.isArray(incident.victims)) {
+          incident.victims.forEach((victim: any) => {
+            if (victim.situation === 'Dead') deaths++;
+            else if (victim.situation === 'Wounded') wounded++;
+          });
+        }
+
         const processedIncident = {
           external_id: incident.id.toString(),
-          incident_type: incident.occurrence_type?.name || 'Não especificado',
+          incident_type: incident.contextInfo?.mainReason?.name || 'Não especificado',
           date: incident.date,
           latitude: incident.latitude ? parseFloat(incident.latitude) : null,
           longitude: incident.longitude ? parseFloat(incident.longitude) : null,
@@ -203,9 +274,9 @@ serve(async (req) => {
           neighborhood: incident.neighborhood?.name || null,
           city: incident.city?.name || null,
           state: incident.state?.name || null,
-          deaths: incident.deaths || 0,
-          wounded: incident.wounded || 0,
-          description: incident.description || null
+          deaths: deaths,
+          wounded: wounded,
+          description: incident.contextInfo?.mainReason?.name || null
         };
 
         const { error } = await supabaseClient
@@ -247,7 +318,7 @@ serve(async (req) => {
         .eq('neighborhood', neighborhood.name)
         .eq('city', 'Salvador')
         .eq('state', 'BA')
-        .single();
+        .maybeSingle();
 
       const safetyData = {
         neighborhood: neighborhood.name,
@@ -294,11 +365,12 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Successfully processed ${processedIncidents.length} new incidents and updated safety index for ${safetyUpdates.length} neighborhoods`,
+        message: `Dados atualizados com sucesso! ${processedIncidents.length} novos incidentes e ${safetyUpdates.length} bairros atualizados.`,
         data: {
           total_occurrences_fetched: allOccurrences.length,
           new_incidents: processedIncidents.length,
           neighborhoods_updated: safetyUpdates.length,
+          period: `${startDate} até ${endDate}`,
           safety_summary: safetyUpdates.slice(0, 10) // Primeiros 10 para resumo
         }
       }),
@@ -313,7 +385,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error.message || 'Internal server error',
+        error: error.message || 'Erro interno do servidor',
         details: error.stack
       }),
       { 

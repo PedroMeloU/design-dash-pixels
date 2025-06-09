@@ -14,10 +14,15 @@ export const UpdateDataButton: React.FC<UpdateDataButtonProps> = ({ onUpdate, is
     try {
       toast.info('Atualizando dados do Fogo Cruzado...');
       const result = await onUpdate();
-      toast.success(`Dados atualizados! ${result.new_incidents} novos incidentes adicionados.`);
+      
+      if (result?.success) {
+        toast.success(result.message || 'Dados atualizados com sucesso!');
+      } else {
+        toast.error(result?.error || 'Erro ao atualizar dados');
+      }
     } catch (error) {
       console.error('Error updating data:', error);
-      toast.error('Erro ao atualizar dados. Tente novamente.');
+      toast.error('Erro ao conectar com o servidor. Verifique sua conexão.');
     }
   };
 
