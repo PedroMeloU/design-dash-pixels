@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { MapContainer } from './MapContainer';
 import { useGeolocation } from '@/hooks/useGeolocation';
+import { SafetyLegend } from './SafetyLegend';
 
 interface InteractiveMapProps {
   selectedLocation?: { center: [number, number]; name: string } | null;
@@ -18,6 +18,8 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ selectedLocation
         selectedLocation={selectedLocation}
         onMapLoad={() => setMapLoaded(true)}
       />
+      
+      <SafetyLegend isVisible={mapLoaded} />
       
       {!mapLoaded && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 backdrop-blur-sm">

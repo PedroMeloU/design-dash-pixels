@@ -5,6 +5,8 @@ import { IncidentMarkers } from './IncidentMarkers';
 import { UserLocationMarker } from './UserLocationMarker';
 import { useFogoCruzadoData } from '@/hooks/useFogoCruzadoData';
 import { useUserLocation } from '@/hooks/useUserLocation';
+import { SafetyMarkers } from './SafetyMarkers';
+import { useSafetyData } from '@/hooks/useSafetyData';
 
 interface GeolocationState {
   latitude: number | null;
@@ -33,6 +35,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   
   const { incidents } = useFogoCruzadoData();
   const { userLocation } = useUserLocation();
+  const { safetyData } = useSafetyData();
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -213,6 +216,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         style={{ minHeight: '100vh' }}
       />
       <IncidentMarkers map={map.current} incidents={incidents} />
+      <SafetyMarkers map={map.current} safetyData={safetyData} />
       {userLocation && (
         <UserLocationMarker
           map={map.current}
