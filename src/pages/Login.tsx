@@ -15,6 +15,7 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -57,22 +58,46 @@ const Login: React.FC = () => {
   };
 
   const handleGoogleAuth = async () => {
+    setIsGoogleLoading(true);
+    
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: `${window.location.origin}/dashboard`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Google auth error details:', error);
+        throw error;
+      }
     } catch (error) {
       console.error('Google auth error:', error);
+      
+      let errorMessage = "Não foi possível fazer login com Google.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes('provider is not enabled')) {
+          errorMessage = "O provedor Google não está configurado. Verifique as configurações no painel do Supabase.";
+        } else if (error.message.includes('validation_failed')) {
+          errorMessage = "Erro de validação. Verifique as configurações de OAuth no Google Cloud Console.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "Erro no login com Google",
-        description: "Não foi possível fazer login com Google.",
+        description: errorMessage,
         variant: "destructive"
       });
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -156,10 +181,11 @@ const Login: React.FC = () => {
           <Button 
             onClick={handleGoogleAuth}
             variant="outline"
-            className="w-full border-gray-300 hover:bg-gray-50"
+            className="w-full border-gray-300 hover:bg-gray-50 h-[48px]"
+            disabled={isGoogleLoading}
           >
             <Chrome size={20} className="mr-2" />
-            Continuar com Google
+            {isGoogleLoading ? 'Conectando...' : 'Continuar com Google'}
           </Button>
           
           <div className="text-center mt-6">
