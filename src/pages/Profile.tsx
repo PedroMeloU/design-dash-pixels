@@ -1,16 +1,31 @@
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BottomNavigation } from '@/components/navigation/BottomNavigation';
 import { User, Settings, Bell, Shield, HelpCircle, LogOut } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 const Profile: React.FC = () => {
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      navigate('/', { replace: true });
+    }
+  };
+
   const menuItems = [
     { icon: User, label: 'Dados Pessoais', action: () => {} },
     { icon: Bell, label: 'Notificações', action: () => {} },
     { icon: Shield, label: 'Privacidade e Segurança', action: () => {} },
     { icon: Settings, label: 'Configurações', action: () => {} },
     { icon: HelpCircle, label: 'Ajuda e Suporte', action: () => {} },
-    { icon: LogOut, label: 'Sair', action: () => {}, danger: true },
+    { icon: LogOut, label: 'Sair', action: handleLogout, danger: true },
   ];
 
   return (

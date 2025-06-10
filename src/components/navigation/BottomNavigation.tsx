@@ -23,8 +23,15 @@ export const BottomNavigation: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    await signOut();
-    navigate('/');
+    try {
+      await signOut();
+      // Clear any cached auth state and navigate to home
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if there's an error, still navigate to home
+      navigate('/', { replace: true });
+    }
   };
 
   return (

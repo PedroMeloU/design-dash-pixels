@@ -17,16 +17,32 @@ const Signup: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
 
-  // Redirect authenticated users to dashboard
+  // Redirect authenticated users to dashboard only after initial auth check
   useEffect(() => {
-    if (user) {
-      navigate('/dashboard');
+    if (!authLoading) {
+      setHasCheckedAuth(true);
+      if (user) {
+        navigate('/dashboard');
+      }
     }
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
+
+  // Don't render until we've checked auth status
+  if (!hasCheckedAuth) {
+    return (
+      <div className="min-h-screen bg-[#F5F7FA] flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1F3C88]"></div>
+          <p className="text-[#1F3C88] font-medium">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
