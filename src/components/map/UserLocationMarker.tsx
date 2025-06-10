@@ -29,11 +29,15 @@ export const UserLocationMarker: React.FC<UserLocationMarkerProps> = ({
 
       // Remove círculo de precisão anterior se existir
       if (accuracyCircleRef.current) {
-        if (map.getLayer(accuracyCircleRef.current)) {
-          map.removeLayer(accuracyCircleRef.current);
-        }
-        if (map.getSource(accuracyCircleRef.current)) {
-          map.removeSource(accuracyCircleRef.current);
+        try {
+          if (map && map.getStyle() && map.getLayer && map.getLayer(accuracyCircleRef.current)) {
+            map.removeLayer(accuracyCircleRef.current);
+          }
+          if (map && map.getStyle() && map.getSource && map.getSource(accuracyCircleRef.current)) {
+            map.removeSource(accuracyCircleRef.current);
+          }
+        } catch (error) {
+          console.warn('Error removing previous accuracy circle:', error);
         }
       }
 
@@ -111,37 +115,41 @@ export const UserLocationMarker: React.FC<UserLocationMarkerProps> = ({
         const circleId = `user-accuracy-circle-${Date.now()}`;
         accuracyCircleRef.current = circleId;
 
-        map.addSource(circleId, {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
-            geometry: {
-              type: 'Point',
-              coordinates: [longitude, latitude]
-            },
-            properties: {}
-          }
-        });
+        try {
+          map.addSource(circleId, {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              geometry: {
+                type: 'Point',
+                coordinates: [longitude, latitude]
+              },
+              properties: {}
+            }
+          });
 
-        map.addLayer({
-          id: circleId,
-          type: 'circle',
-          source: circleId,
-          paint: {
-            'circle-radius': {
-              stops: [
-                [0, 0],
-                [20, accuracy * 0.3] // Aproximação visual do raio de precisão
-              ],
-              base: 2
-            },
-            'circle-color': '#3B82F6',
-            'circle-opacity': 0.1,
-            'circle-stroke-color': '#3B82F6',
-            'circle-stroke-width': 1,
-            'circle-stroke-opacity': 0.3
-          }
-        });
+          map.addLayer({
+            id: circleId,
+            type: 'circle',
+            source: circleId,
+            paint: {
+              'circle-radius': {
+                stops: [
+                  [0, 0],
+                  [20, accuracy * 0.3] // Aproximação visual do raio de precisão
+                ],
+                base: 2
+              },
+              'circle-color': '#3B82F6',
+              'circle-opacity': 0.1,
+              'circle-stroke-color': '#3B82F6',
+              'circle-stroke-width': 1,
+              'circle-stroke-opacity': 0.3
+            }
+          });
+        } catch (error) {
+          console.warn('Error adding accuracy circle:', error);
+        }
       }
 
       // Centralizar mapa na localização do usuário
@@ -168,10 +176,24 @@ export const UserLocationMarker: React.FC<UserLocationMarkerProps> = ({
     return () => {
       if (markerRef.current) {
         markerRef.current.remove();
+        markerRef.current = null;
       }
-      if (accuracyCircleRef.current && map.getLayer(accuracyCircleRef.current)) {
-        map.removeLayer(accuracyCircleRef.current);
-        map.removeSource(accuracyCircleRef.current);
+      
+      if (accuracyCircleRef.current && map) {
+        try {
+          // Verificar se o mapa ainda existe e tem o estilo carregado
+          if (map.getStyle && map.getStyle()) {
+            if (map.getLayer && map.getLayer(accuracyCircleRef.current)) {
+              map.removeLayer(accuracyCircleRef.current);
+            }
+            if (map.getSource && map.getSource(accuracyCircleRef.current)) {
+              map.removeSource(accuracyCircleRef.current);
+            }
+          }
+        } catch (error) {
+          console.warn('Error during cleanup:', error);
+        }
+        accuracyCircleRef.current = null;
       }
     };
   }, [map, latitude, longitude, accuracy]);
