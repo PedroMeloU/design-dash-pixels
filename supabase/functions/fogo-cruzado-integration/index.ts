@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -197,9 +196,34 @@ serve(async (req) => {
 
     console.log('Found Salvador city:', salvadorCity);
 
-    // Buscar bairros de Salvador
+    // Buscar bairros de Salvador - Tentar diferentes parâmetros para compatibilidade com a API do Fogo Cruzado
     console.log('Fetching neighborhoods data for Salvador...');
-    const neighborhoodsData = await fetchWithAuth(`https://api-service.fogocruzado.org.br/api/v2/neighborhoods?city=${salvadorCity.id}`, token);
+    let neighborhoodsData;
+    const possibleParams = [
+      `city=${salvadorCity.id}`,
+      `cityId=${salvadorCity.id}`,
+      `idCity=${salvadorCity.id}`,
+      `id=${salvadorCity.id}`
+    ];
+    let triedParams = [];
+    for (let param of possibleParams) {
+      try {
+        neighborhoodsData = await fetchWithAuth(`https://api-service.fogocruzado.org.br/api/v2/neighborhoods?${param}`, token);
+        if (
+          neighborhoodsData.data && Array.isArray(neighborhoodsData.data) && neighborhoodsData.data.length > 0
+        ) {
+          console.log(`Successfully fetched neighborhoods using param: ${param}`);
+          break;
+        }
+      } catch (e) {
+        console.error(`Attempt to fetch neighborhoods with param "${param}" failed:`, e.message);
+        triedParams.push(param);
+      }
+    }
+
+    if (!neighborhoodsData || !neighborhoodsData.data || neighborhoodsData.data.length === 0) {
+      throw new Error(`Falha ao buscar bairros. Parâmetros testados: ${triedParams.join(', ')}`);
+    }
 
     // Definir período para buscar ocorrências (últimos 6 meses)
     const endDate = new Date().toISOString().split('T')[0];
