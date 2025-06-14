@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { useFogoCruzadoData } from '@/hooks/useFogoCruzadoData';
@@ -34,15 +33,38 @@ export const SafetyMarkers: React.FC<{
     relatedIncidents: any[];
   }>(null);
 
-  // Otimiza criação dos marcadores sem reprocessar em excesso
+  // --------- Modal Handling Optimization ---------
+  // Always reset modal before setting new (robust open/close)
+  const handleMarkerClick = useCallback(
+    (data: SafetyData) => {
+      let relatedIncidents: any[] = [];
+      if (incidents && Array.isArray(incidents)) {
+        relatedIncidents = incidents
+          .filter(
+            inc =>
+              inc.neighborhood &&
+              data.neighborhood &&
+              inc.neighborhood.trim().toLocaleLowerCase() === data.neighborhood.trim().toLocaleLowerCase()
+          )
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, 3);
+      }
+      setModalData(null); // reset to force update if needed
+      // Small timeout to ensure modal always re-renders
+      setTimeout(() => {
+        setModalData({ data, relatedIncidents });
+      }, 0);
+    },
+    [incidents]
+  );
+
+  // --------- Place Markers As Usual, Use new handler ---------
   const placeSafetyMarkers = useCallback(() => {
     if (!map) return;
-
-    // Limpa marcadores antigos
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
     const zoom = map.getZoom();
-    if (zoom < 13) return; // Só mostra no zoom ideal
+    if (zoom < 13) return; // Show only at ideal zoom
 
     validSafetyData.forEach(data => {
       if (!data.latitude || !data.longitude) return;
@@ -77,18 +99,7 @@ export const SafetyMarkers: React.FC<{
 
       markerElement.addEventListener('click', (e) => {
         e.stopPropagation();
-        let relatedIncidents: any[] = [];
-        if (incidents && Array.isArray(incidents)) {
-          relatedIncidents = incidents
-            .filter(inc =>
-              inc.neighborhood &&
-              data.neighborhood &&
-              inc.neighborhood.trim().toLocaleLowerCase() === data.neighborhood.trim().toLocaleLowerCase()
-            )
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-            .slice(0, 3);
-        }
-        setModalData({ data, relatedIncidents });
+        handleMarkerClick(data);
       });
 
       const marker = new mapboxgl.Marker({
@@ -100,7 +111,7 @@ export const SafetyMarkers: React.FC<{
 
       markersRef.current.push(marker);
     });
-  }, [map, validSafetyData, incidents]);
+  }, [map, validSafetyData, handleMarkerClick]);
 
   useEffect(() => {
     if (!map) return;
