@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { useFogoCruzadoData } from '@/hooks/useFogoCruzadoData';
@@ -22,12 +21,10 @@ export const SafetyMarkers: React.FC<{
   map: mapboxgl.Map | null;
   safetyData: SafetyData[];
 }> = ({ map, safetyData }) => {
-  const markersRef = useRef<{ marker: mapboxgl.Marker; minZoom: number }[]>([]);
+  const markersRef = useRef<{ marker: mapboxgl.Marker; minZoom: number; lng: number; lat: number }[]>([]);
   const layerIdRef = useRef<string | null>(null);
   const regionLayerIdRef = useRef<string | null>(null);
-
   const { incidents } = useFogoCruzadoData();
-
   const validSafetyData = useValidSafetyData(safetyData);
 
   useEffect(() => {
@@ -167,18 +164,12 @@ export const SafetyMarkers: React.FC<{
     });
 
     // --- MARCADORES ---
-
-    // Definir o zoom mínimo para mostrar marcadores (EX: > 12)
     const minZoom = 13;
-
     validSafetyData.forEach(data => {
       if (!data.latitude || !data.longitude) return;
-
       const color = getSafetyColor(data.safety_percentage);
       const icon = getSafetyIcon(data.safety_percentage);
       const label = getSafetyLabel(data.safety_percentage);
-
-      // Criar elemento do marcador
       const markerElement = document.createElement('div');
       markerElement.className = 'safety-marker';
       markerElement.style.cssText = `
@@ -197,7 +188,6 @@ export const SafetyMarkers: React.FC<{
         transition: transform 0.2s ease;
       `;
       markerElement.innerHTML = icon;
-
       markerElement.addEventListener('mouseenter', () => {
         markerElement.style.transform = 'scale(1.2)';
       });
@@ -260,47 +250,45 @@ export const SafetyMarkers: React.FC<{
         </div>
       `;
 
-      // Criar marcador -- só adiciona se zoom > minZoom
       const marker = new mapboxgl.Marker({
         element: markerElement,
         anchor: 'center'
       })
-      .setLngLat([data.longitude, data.latitude])
-      .setPopup(
-        new mapboxgl.Popup({
-          offset: 25,
-          className: 'safety-popup',
-          maxWidth: '320px',
-          closeButton: true,
-          closeOnClick: false
-        }).setHTML(popupContent)
-      );
+        .setLngLat([data.longitude, data.latitude])
+        .setPopup(
+          new mapboxgl.Popup({
+            offset: 25,
+            className: 'safety-popup',
+            maxWidth: '320px',
+            closeButton: true,
+            closeOnClick: false
+          }).setHTML(popupContent)
+        );
 
-      // Salva o marcador + minZoom, mas NÃO adiciona/remover múltiplas vezes depois!
-      markersRef.current.push({ marker, minZoom });
+      markersRef.current.push({ marker, minZoom, lng: data.longitude, lat: data.latitude });
     });
 
-    // Função que atualiza a visibilidade dos marcadores sem re-adicioná-los/removê-los constantemente
-    const updateAllMarkers = () => {
+    // Função para adicionar/remover markers do mapa conforme o zoom
+    const updateMarkersOnZoom = () => {
       if (!map) return;
       const zoom = map.getZoom();
-      markersRef.current.forEach(({ marker, minZoom }) => {
+      markersRef.current.forEach(({ marker, minZoom, lng, lat }) => {
         if (zoom >= minZoom) {
           if (!marker.getElement().parentElement) {
+            marker.setLngLat([lng, lat]);
             marker.addTo(map);
           }
-          marker.getElement().style.display = 'flex';
         } else {
-          marker.getElement().style.display = 'none';
+          marker.remove();
         }
       });
     };
 
-    // Chama na montagem
-    updateAllMarkers();
+    // Exibe pela primeira vez
+    updateMarkersOnZoom();
 
-    // Atualiza apenas display no zoom, sem remover/adicionar marker do mapa!
-    map.on('zoom', updateAllMarkers);
+    // Atualiza ao fazer zoom
+    map.on('zoom', updateMarkersOnZoom);
 
     // Cleanup
     return () => {
@@ -314,8 +302,8 @@ export const SafetyMarkers: React.FC<{
         map.removeLayer(regionLayerIdRef.current);
         map.removeSource(regionLayerIdRef.current);
       }
-      if (map && updateAllMarkers) {
-        map.off('zoom', updateAllMarkers);
+      if (map && updateMarkersOnZoom) {
+        map.off('zoom', updateMarkersOnZoom);
       }
     };
   }, [map, validSafetyData, incidents]);
