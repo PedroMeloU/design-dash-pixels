@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
+import { useFogoCruzadoData } from '@/hooks/useFogoCruzadoData';
 
 interface SafetyData {
   neighborhood: string;
@@ -11,6 +12,19 @@ interface SafetyData {
   last_calculated: string;
   latitude?: number;
   longitude?: number;
+}
+
+interface Incident {
+  id: string;
+  incident_type: string;
+  date: string;
+  latitude: number | null;
+  longitude: number | null;
+  address: string | null;
+  neighborhood: string | null;
+  deaths: number;
+  wounded: number;
+  description: string | null;
 }
 
 interface SafetyMarkersProps {
@@ -42,34 +56,86 @@ const getSafetyLabel = (safetyPercentage: number): string => {
 export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData }) => {
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const layerIdRef = useRef<string | null>(null);
+  const regionLayerIdRef = useRef<string | null>(null);
+
+  // Use incidents data to show related occurrences in popups
+  const { incidents } = useFogoCruzadoData();
 
   useEffect(() => {
     if (!map) return;
 
-    // Remover marcadores existentes
+    // Remover marcadores e layers existentes
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
-
-    // Remover camada existente se houver
     if (layerIdRef.current && map.getLayer(layerIdRef.current)) {
       map.removeLayer(layerIdRef.current);
       map.removeSource(layerIdRef.current);
     }
+    if (regionLayerIdRef.current && map.getLayer(regionLayerIdRef.current)) {
+      map.removeLayer(regionLayerIdRef.current);
+      map.removeSource(regionLayerIdRef.current);
+    }
 
     // Filtrar apenas dados com coordenadas válidas
-    const validSafetyData = safetyData.filter(data => 
+    const validSafetyData = safetyData.filter(data =>
       data.latitude && data.longitude && !isNaN(data.latitude) && !isNaN(data.longitude)
     );
-
     if (validSafetyData.length === 0) {
       console.log('No valid safety data with coordinates found');
       return;
     }
 
-    // Criar fonte de dados para heatmap
+    // [1] Pintar as regiões: adicionar camada GeoJSON de polígonos simples baseados na posição do marcador
+    // Usa buffers circulares para simular a região do bairro
+    const regionLayerId = `safety-region-fill-${Date.now()}`;
+    regionLayerIdRef.current = regionLayerId;
+
+    // Gerar geojson de regiões circulares (buffer ~250m para visual leve em zoom alto)
+    const regionsGeoJson = {
+      type: 'FeatureCollection' as const,
+      features: validSafetyData.map(data => ({
+        type: 'Feature' as const,
+        properties: {
+          safety_percentage: data.safety_percentage,
+          neighborhood: data.neighborhood,
+          color: getSafetyColor(data.safety_percentage),
+        },
+        geometry: {
+          type: 'Point' as const,
+          coordinates: [data.longitude!, data.latitude!],
+        },
+      })),
+    };
+
+    // Simula "buffers" circulares pequenos
+    map.addSource(regionLayerId, {
+      type: 'geojson',
+      data: regionsGeoJson,
+    });
+
+    map.addLayer({
+      id: regionLayerId,
+      type: 'circle',
+      source: regionLayerId,
+      paint: {
+        'circle-radius': [
+          'interpolate', ['linear'], ['zoom'],
+          10, 30,
+          13, 60,
+          16, 140,
+        ],
+        'circle-color': ['get', 'color'],
+        'circle-opacity': 0.16,
+        'circle-stroke-color': ['get', 'color'],
+        'circle-stroke-width': 1,
+        'circle-stroke-opacity': 0.2,
+      },
+      filter: ['!', ['has', 'point_count']],
+    });
+
+    // [2] Adicionar camada de heatmap (mesmo que antes)
     const layerId = `safety-heatmap-${Date.now()}`;
     layerIdRef.current = layerId;
-
     const heatmapData = {
       type: 'FeatureCollection' as const,
       features: validSafetyData.map(data => ({
@@ -86,13 +152,11 @@ export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData })
       }))
     };
 
-    // Adicionar fonte de dados
     map.addSource(layerId, {
       type: 'geojson',
       data: heatmapData
     });
 
-    // Adicionar camada de heatmap
     map.addLayer({
       id: layerId,
       type: 'heatmap',
@@ -141,13 +205,26 @@ export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData })
       }
     });
 
-    // Adicionar marcadores individuais para zoom alto
+    // [3] Marcadores de segurança com informações extras
     validSafetyData.forEach(data => {
       if (!data.latitude || !data.longitude) return;
 
       const color = getSafetyColor(data.safety_percentage);
       const icon = getSafetyIcon(data.safety_percentage);
       const label = getSafetyLabel(data.safety_percentage);
+
+      // Filtra ocorrências recentes (até 3) para o bairro/cidade do marcador
+      let relatedIncidents: Incident[] = [];
+      if (incidents && Array.isArray(incidents)) {
+        relatedIncidents = incidents
+          .filter(inc =>
+            inc.neighborhood &&
+            data.neighborhood &&
+            inc.neighborhood.trim().toLocaleLowerCase() === data.neighborhood.trim().toLocaleLowerCase()
+          )
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, 3); // mostre só 3 mais recentes
+      }
 
       // Criar elemento do marcador
       const markerElement = document.createElement('div');
@@ -169,7 +246,6 @@ export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData })
       `;
       markerElement.innerHTML = icon;
 
-      // Adicionar efeito hover
       markerElement.addEventListener('mouseenter', () => {
         markerElement.style.transform = 'scale(1.2)';
       });
@@ -193,13 +269,30 @@ export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData })
               <span style="color: ${color}; font-weight: 600;">${label}</span>
             </div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-              <span style="font-weight: 500;">Ocorrências:</span>
+              <span style="font-weight: 500;">Ocorrências (6 meses):</span>
               <span>${data.crime_count}</span>
             </div>
             <div style="font-size: 11px; color: #666; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee;">
               Última atualização: ${new Date(data.last_calculated).toLocaleDateString('pt-BR')}
             </div>
           </div>
+          ${relatedIncidents.length > 0 ? `
+            <div style="font-size:12px;margin-top:8px">
+              <strong>Ocorrências recentes:</strong>
+              <ul style="padding-left:16px; margin: 6px 0 0 0;">
+                ${relatedIncidents
+                  .map(inc =>
+                    `<li>
+                      <span title="${new Date(inc.date).toLocaleString('pt-BR')}">
+                        ${new Date(inc.date).toLocaleDateString('pt-BR')}
+                      </span>
+                      - ${inc.incident_type}${inc.deaths ? `, <span style="color:#DC2626">Mortes:${inc.deaths}</span>` : ''}
+                      ${inc.wounded ? `, <span style="color:#EA580C">Feridos:${inc.wounded}</span>` : ''}
+                    </li>`
+                  ).join('')}
+              </ul>
+            </div>
+          ` : ''}
         </div>
       `;
 
@@ -210,7 +303,7 @@ export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData })
       })
       .setLngLat([data.longitude, data.latitude])
       .setPopup(
-        new mapboxgl.Popup({ 
+        new mapboxgl.Popup({
           offset: 25,
           className: 'safety-popup',
           maxWidth: '320px',
@@ -229,7 +322,6 @@ export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData })
         }
       };
 
-      // Atualizar visibilidade inicial e em mudanças de zoom
       updateMarkerVisibility();
       map.on('zoom', updateMarkerVisibility);
 
@@ -240,13 +332,17 @@ export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData })
     return () => {
       markersRef.current.forEach(marker => marker.remove());
       markersRef.current = [];
-      
       if (layerIdRef.current && map.getLayer(layerIdRef.current)) {
         map.removeLayer(layerIdRef.current);
         map.removeSource(layerIdRef.current);
       }
+      if (regionLayerIdRef.current && map.getLayer(regionLayerIdRef.current)) {
+        map.removeLayer(regionLayerIdRef.current);
+        map.removeSource(regionLayerIdRef.current);
+      }
     };
-  }, [map, safetyData]);
+  }, [map, safetyData, incidents]);
 
   return null;
 };
+
