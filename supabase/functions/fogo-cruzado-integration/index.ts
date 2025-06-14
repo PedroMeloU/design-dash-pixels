@@ -200,6 +200,7 @@ serve(async (req) => {
     console.log('Fetching neighborhoods data for Salvador...');
     let neighborhoodsData = null;
     let triedUrls = [];
+    let descriptiveNeighborhoodError = '';
 
     // 1. Tentar padrão RESTful (mais provável!)
     try {
@@ -209,11 +210,12 @@ serve(async (req) => {
         console.log(`Successfully fetched neighborhoods using RESTful route: ${restNeighborhoodUrl}`);
       } else {
         neighborhoodsData = null;
-        triedUrls.push(restNeighborhoodUrl);
+        triedUrls.push('RESTful: ' + restNeighborhoodUrl);
       }
     } catch (e) {
       console.error(`Attempt to fetch neighborhoods with RESTful route failed:`, e.message);
       triedUrls.push(`RESTful: /cities/${salvadorCity.id}/neighborhoods`);
+      descriptiveNeighborhoodError += `Erro RESTful: ${e.message}\n`;
     }
 
     // 2. Se falhar, tentar via query string (padrões antigos)
@@ -232,18 +234,26 @@ serve(async (req) => {
           if (data.data && Array.isArray(data.data) && data.data.length > 0) {
             neighborhoodsData = data;
             console.log(`Successfully fetched neighborhoods using param: ${param}`);
+            descriptiveNeighborhoodError += '';
             break;
           }
         } catch (e) {
           console.error(`Attempt to fetch neighborhoods with param "${param}" failed:`, e.message);
           triedUrls.push(param);
+          descriptiveNeighborhoodError += `Query "${param}": ${e.message}\n`;
         }
       }
     }
 
     if (!neighborhoodsData || !neighborhoodsData.data || neighborhoodsData.data.length === 0) {
       throw new Error(
-        `Falha ao buscar bairros. URLs/parâmetros testados: ${triedUrls.join(', ')}`
+        `Falha ao buscar bairros. Nenhuma forma de acesso funcionou para bairros de Salvador via API Fogo Cruzado.
+Possíveis causas:
+- O endpoint de bairros da API pode estar fora do ar ou não está disponível para Salvador.
+- Veja logs para mensagens detalhadas: 
+${descriptiveNeighborhoodError}
+URLs/parâmetros testados: ${triedUrls.join(', ')}
+Se o problema persistir, entre em contato com o suporte da API Fogo Cruzado.`
       );
     }
 
