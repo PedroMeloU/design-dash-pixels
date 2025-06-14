@@ -180,9 +180,9 @@ serve(async (req) => {
 
     console.log('Found Bahia state:', bahiaState);
 
-    // Buscar cidades da Bahia usando o parâmetro state conforme documentação
+    // Buscar cidades da Bahia usando o parâmetro stateId (corrigido)
     console.log('Fetching cities data for Bahia...');
-    const citiesData = await fetchWithAuth(`https://api-service.fogocruzado.org.br/api/v2/cities?state=${bahiaState.id}`, token);
+    const citiesData = await fetchWithAuth(`https://api-service.fogocruzado.org.br/api/v2/cities?stateId=${bahiaState.id}`, token);
     
     // Encontrar Salvador
     const salvadorCity = citiesData.data?.find((city: any) => 
@@ -196,12 +196,12 @@ serve(async (req) => {
 
     console.log('Found Salvador city:', salvadorCity);
 
-    // Buscar bairros de Salvador - Tentar diferentes parâmetros para compatibilidade com a API do Fogo Cruzado
+    // Buscar bairros de Salvador - Priorizar cityId
     console.log('Fetching neighborhoods data for Salvador...');
     let neighborhoodsData;
     const possibleParams = [
-      `city=${salvadorCity.id}`,
       `cityId=${salvadorCity.id}`,
+      `city=${salvadorCity.id}`,
       `idCity=${salvadorCity.id}`,
       `id=${salvadorCity.id}`
     ];
