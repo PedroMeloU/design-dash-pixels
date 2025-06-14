@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { useFogoCruzadoData } from '@/hooks/useFogoCruzadoData';
 import { getSafetyColor } from './getSafetyColor';
@@ -25,6 +26,7 @@ export const SafetyMarkers: React.FC<{
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const layerIdRef = useRef<string | null>(null);
   const regionLayerIdRef = useRef<string | null>(null);
+  const onZoomListenerRef = useRef<(() => void) | null>(null);
   const { incidents } = useFogoCruzadoData();
   const validSafetyData = useValidSafetyData(safetyData);
   const [modalData, setModalData] = useState<null | {
@@ -32,10 +34,84 @@ export const SafetyMarkers: React.FC<{
     relatedIncidents: any[];
   }>(null);
 
+  // Otimiza criação dos marcadores sem reprocessar em excesso
+  const placeSafetyMarkers = useCallback(() => {
+    if (!map) return;
+
+    // Limpa marcadores antigos
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+    const zoom = map.getZoom();
+    if (zoom < 13) return; // Só mostra no zoom ideal
+
+    validSafetyData.forEach(data => {
+      if (!data.latitude || !data.longitude) return;
+      const color = getSafetyColor(data.safety_percentage);
+      const icon = getSafetyIcon(data.safety_percentage);
+      const label = getSafetyLabel(data.safety_percentage);
+
+      const markerElement = document.createElement('div');
+      markerElement.className = 'safety-marker';
+      markerElement.style.cssText = `
+        width: 35px;
+        height: 35px;
+        background: ${color};
+        border: 3px solid white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        box-shadow: 0 3px 12px rgba(0,0,0,0.4);
+        cursor: pointer;
+        position: relative;
+        transition: transform 0.2s ease;
+      `;
+      markerElement.innerHTML = icon;
+      markerElement.addEventListener('mouseenter', () => {
+        markerElement.style.transform = 'scale(1.2)';
+      });
+      markerElement.addEventListener('mouseleave', () => {
+        markerElement.style.transform = 'scale(1)';
+      });
+
+      markerElement.addEventListener('click', (e) => {
+        e.stopPropagation();
+        let relatedIncidents: any[] = [];
+        if (incidents && Array.isArray(incidents)) {
+          relatedIncidents = incidents
+            .filter(inc =>
+              inc.neighborhood &&
+              data.neighborhood &&
+              inc.neighborhood.trim().toLocaleLowerCase() === data.neighborhood.trim().toLocaleLowerCase()
+            )
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .slice(0, 3);
+        }
+        setModalData({ data, relatedIncidents });
+      });
+
+      const marker = new mapboxgl.Marker({
+        element: markerElement,
+        anchor: 'center'
+      })
+        .setLngLat([data.longitude, data.latitude])
+        .addTo(map);
+
+      markersRef.current.push(marker);
+    });
+  }, [map, validSafetyData, incidents]);
+
   useEffect(() => {
     if (!map) return;
 
-    // Remover marcadores e layers existentes
+    // Remove event listener antigo antes de adicionar outro
+    if (onZoomListenerRef.current) {
+      map.off('zoom', onZoomListenerRef.current);
+      onZoomListenerRef.current = null;
+    }
+
+    // Remove marcadores e camadas antigas
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
     if (layerIdRef.current && map.getLayer(layerIdRef.current)) {
@@ -48,11 +124,10 @@ export const SafetyMarkers: React.FC<{
     }
 
     if (validSafetyData.length === 0) {
-      console.log('No valid safety data with coordinates found');
       return;
     }
 
-    // Região colorida (inalterado)
+    // Região colorida
     const regionLayerId = `safety-region-fill-${Date.now()}`;
     regionLayerIdRef.current = regionLayerId;
     const regionsGeoJson = {
@@ -70,12 +145,10 @@ export const SafetyMarkers: React.FC<{
         },
       })),
     };
-
     map.addSource(regionLayerId, {
       type: 'geojson',
       data: regionsGeoJson,
     });
-
     map.addLayer({
       id: regionLayerId,
       type: 'circle',
@@ -96,7 +169,7 @@ export const SafetyMarkers: React.FC<{
       filter: ['!', ['has', 'point_count']],
     });
 
-    // Heatmap (inalterado)
+    // Heatmap
     const layerId = `safety-heatmap-${Date.now()}`;
     layerIdRef.current = layerId;
     const heatmapData = {
@@ -114,12 +187,10 @@ export const SafetyMarkers: React.FC<{
         }
       }))
     };
-
     map.addSource(layerId, {
       type: 'geojson',
       data: heatmapData
     });
-
     map.addLayer({
       id: layerId,
       type: 'heatmap',
@@ -168,85 +239,14 @@ export const SafetyMarkers: React.FC<{
       }
     });
 
-    // Função para (re)criar TODOS os marcadores apenas se o zoom for suficiente
-    const placeSafetyMarkers = () => {
-      // Remove todos antigos (se existirem)
-      markersRef.current.forEach(marker => marker.remove());
-      markersRef.current = [];
-
-      const zoom = map.getZoom();
-      const minZoom = 13;
-
-      if (zoom < minZoom) return; // Não mostra markers se não for o zoom desejado
-
-      validSafetyData.forEach(data => {
-        if (!data.latitude || !data.longitude) return;
-        const color = getSafetyColor(data.safety_percentage);
-        const icon = getSafetyIcon(data.safety_percentage);
-        const label = getSafetyLabel(data.safety_percentage);
-
-        const markerElement = document.createElement('div');
-        markerElement.className = 'safety-marker';
-        markerElement.style.cssText = `
-          width: 35px;
-          height: 35px;
-          background: ${color};
-          border: 3px solid white;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 14px;
-          box-shadow: 0 3px 12px rgba(0,0,0,0.4);
-          cursor: pointer;
-          position: relative;
-          transition: transform 0.2s ease;
-        `;
-        markerElement.innerHTML = icon;
-        markerElement.addEventListener('mouseenter', () => {
-          markerElement.style.transform = 'scale(1.2)';
-        });
-        markerElement.addEventListener('mouseleave', () => {
-          markerElement.style.transform = 'scale(1)';
-        });
-
-        // NOVO: Ao clicar, abre o modal centralizado
-        markerElement.addEventListener('click', (e) => {
-          e.stopPropagation();
-          let relatedIncidents: any[] = [];
-          if (incidents && Array.isArray(incidents)) {
-            relatedIncidents = incidents
-              .filter(inc =>
-                inc.neighborhood &&
-                data.neighborhood &&
-                inc.neighborhood.trim().toLocaleLowerCase() === data.neighborhood.trim().toLocaleLowerCase()
-              )
-              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-              .slice(0, 3);
-          }
-          setModalData({ data, relatedIncidents });
-        });
-
-        // Não adiciona mais o Popup no marcador
-        const marker = new mapboxgl.Marker({
-          element: markerElement,
-          anchor: 'center'
-        })
-          .setLngLat([data.longitude, data.latitude])
-          .addTo(map);
-
-        markersRef.current.push(marker);
-      });
-    };
-
-    // Exibe os marcadores inicialmente
+    // Adiciona marcadores e controle de evento só uma vez
     placeSafetyMarkers();
+    const boundListener = () => placeSafetyMarkers();
+    map.on('zoom', boundListener);
+    onZoomListenerRef.current = boundListener;
 
-    // Atualiza marcadores de acordo com o zoom usando placeSafetyMarkers
-    map.on('zoom', placeSafetyMarkers);
-
-    // Cleanup: remove marcadores, layers e event listener de zoom
     return () => {
+      // Limpa tudo de novo
       markersRef.current.forEach(marker => marker.remove());
       markersRef.current = [];
       if (layerIdRef.current && map.getLayer(layerIdRef.current)) {
@@ -257,11 +257,13 @@ export const SafetyMarkers: React.FC<{
         map.removeLayer(regionLayerIdRef.current);
         map.removeSource(regionLayerIdRef.current);
       }
-      map.off('zoom', placeSafetyMarkers);
+      if (onZoomListenerRef.current) {
+        map.off('zoom', onZoomListenerRef.current);
+        onZoomListenerRef.current = null;
+      }
     };
-  }, [map, validSafetyData, incidents]);
+  }, [map, validSafetyData, incidents, placeSafetyMarkers]);
 
-  // Renderiza o modal centralizado, visível se modalData for não nulo
   return (
     <>
       <SafetyMarkerModal
