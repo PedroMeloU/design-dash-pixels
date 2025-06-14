@@ -167,12 +167,9 @@ serve(async (req) => {
     // Buscar dados de estados conforme documentação
     console.log('Fetching states data...');
     const statesData = await fetchWithAuth('https://api-service.fogocruzado.org.br/api/v2/states', token);
-    
-    // Encontrar a Bahia na resposta
     const bahiaState = statesData.data?.find((state: any) => 
       state.name?.toLowerCase().includes('bahia') || state.name === 'Bahia'
     );
-    
     if (!bahiaState) {
       console.error('Available states:', statesData.data?.map((s: any) => s.name));
       throw new Error('Bahia state not found in API response');
@@ -180,15 +177,12 @@ serve(async (req) => {
 
     console.log('Found Bahia state:', bahiaState);
 
-    // Buscar cidades da Bahia usando o parâmetro stateId (corrigido)
+    // Buscar cidades da Bahia
     console.log('Fetching cities data for Bahia...');
     const citiesData = await fetchWithAuth(`https://api-service.fogocruzado.org.br/api/v2/cities?stateId=${bahiaState.id}`, token);
-    
-    // Encontrar Salvador
     const salvadorCity = citiesData.data?.find((city: any) => 
       city.name?.toLowerCase().includes('salvador') || city.name === 'Salvador'
     );
-    
     if (!salvadorCity) {
       console.error('Available cities in Bahia:', citiesData.data?.map((c: any) => c.name));
       throw new Error('Salvador city not found in API response');
@@ -196,66 +190,8 @@ serve(async (req) => {
 
     console.log('Found Salvador city:', salvadorCity);
 
-    // Buscar bairros de Salvador usando URL RESTful caso a query falhe
-    console.log('Fetching neighborhoods data for Salvador...');
-    let neighborhoodsData = null;
-    let triedUrls = [];
-    let descriptiveNeighborhoodError = '';
-
-    // 1. Tentar padrão RESTful (mais provável!)
-    try {
-      const restNeighborhoodUrl = `https://api-service.fogocruzado.org.br/api/v2/cities/${salvadorCity.id}/neighborhoods`;
-      neighborhoodsData = await fetchWithAuth(restNeighborhoodUrl, token);
-      if (neighborhoodsData.data && Array.isArray(neighborhoodsData.data) && neighborhoodsData.data.length > 0) {
-        console.log(`Successfully fetched neighborhoods using RESTful route: ${restNeighborhoodUrl}`);
-      } else {
-        neighborhoodsData = null;
-        triedUrls.push('RESTful: ' + restNeighborhoodUrl);
-      }
-    } catch (e) {
-      console.error(`Attempt to fetch neighborhoods with RESTful route failed:`, e.message);
-      triedUrls.push(`RESTful: /cities/${salvadorCity.id}/neighborhoods`);
-      descriptiveNeighborhoodError += `Erro RESTful: ${e.message}\n`;
-    }
-
-    // 2. Se falhar, tentar via query string (padrões antigos)
-    if (!neighborhoodsData || !neighborhoodsData.data || neighborhoodsData.data.length === 0) {
-      const possibleParams = [
-        `cityId=${salvadorCity.id}`,
-        `city=${salvadorCity.id}`,
-        `idCity=${salvadorCity.id}`,
-        `id=${salvadorCity.id}`
-      ];
-
-      for (let param of possibleParams) {
-        try {
-          const url = `https://api-service.fogocruzado.org.br/api/v2/neighborhoods?${param}`;
-          const data = await fetchWithAuth(url, token);
-          if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-            neighborhoodsData = data;
-            console.log(`Successfully fetched neighborhoods using param: ${param}`);
-            descriptiveNeighborhoodError += '';
-            break;
-          }
-        } catch (e) {
-          console.error(`Attempt to fetch neighborhoods with param "${param}" failed:`, e.message);
-          triedUrls.push(param);
-          descriptiveNeighborhoodError += `Query "${param}": ${e.message}\n`;
-        }
-      }
-    }
-
-    if (!neighborhoodsData || !neighborhoodsData.data || neighborhoodsData.data.length === 0) {
-      throw new Error(
-        `Falha ao buscar bairros. Nenhuma forma de acesso funcionou para bairros de Salvador via API Fogo Cruzado.
-Possíveis causas:
-- O endpoint de bairros da API pode estar fora do ar ou não está disponível para Salvador.
-- Veja logs para mensagens detalhadas: 
-${descriptiveNeighborhoodError}
-URLs/parâmetros testados: ${triedUrls.join(', ')}
-Se o problema persistir, entre em contato com o suporte da API Fogo Cruzado.`
-      );
-    }
+    // Não tentar mais buscar bairros (endpoint não documentado/não funcional)
+    console.warn('[Fogo Cruzado Integration] O endpoint de bairros (neighborhoods) não está documentado ou funcional. Pulando busca de bairros.');
 
     // Definir período para buscar ocorrências (últimos 6 meses)
     const endDate = new Date().toISOString().split('T')[0];
@@ -263,23 +199,19 @@ Se o problema persistir, entre em contato com o suporte da API Fogo Cruzado.`
 
     console.log(`Fetching occurrences from ${startDate} to ${endDate}...`);
 
-    // Buscar ocorrências com paginação conforme documentação
+    // Buscar ocorrências das APIs documentadas normalmente
     let allOccurrences: any[] = [];
     let page = 1;
-    const take = 1000; // Usar 'take' conforme documentação
+    const take = 1000;
     let hasMoreData = true;
 
     while (hasMoreData) {
       const occurrencesUrl = `https://api-service.fogocruzado.org.br/api/v2/occurrences?initialdate=${startDate}&finaldate=${endDate}&idState=${bahiaState.id}&idCities=${salvadorCity.id}&page=${page}&take=${take}`;
-      
       console.log(`Fetching page ${page} of occurrences...`);
       const occurrencesResponse = await fetchWithAuth(occurrencesUrl, token);
-      
       if (occurrencesResponse.data && occurrencesResponse.data.length > 0) {
         allOccurrences = allOccurrences.concat(occurrencesResponse.data);
         page++;
-        
-        // Verificar se há mais páginas usando pageMeta conforme documentação
         const pageMeta = occurrencesResponse.pageMeta;
         if (pageMeta && !pageMeta.hasNextPage) {
           hasMoreData = false;
@@ -295,7 +227,6 @@ Se o problema persistir, entre em contato com o suporte da API Fogo Cruzado.`
 
     // Processar e armazenar incidentes na tabela existente
     const processedIncidents = [];
-    
     for (const incident of allOccurrences) {
       try {
         // Verificar se o incidente já existe
@@ -306,19 +237,20 @@ Se o problema persistir, entre em contato com o suporte da API Fogo Cruzado.`
           .single();
 
         if (existingIncident) {
-          continue; // Pular se já existe
+          continue;
         }
 
-        // Contar mortos e feridos das vítimas
         let deaths = 0;
         let wounded = 0;
-        
         if (incident.victims && Array.isArray(incident.victims)) {
           incident.victims.forEach((victim: any) => {
             if (victim.situation === 'Dead') deaths++;
             else if (victim.situation === 'Wounded') wounded++;
           });
         }
+
+        // Se não tiver bairro, colocar como 'Indisponível'
+        const neighborhoodName = incident.neighborhood?.name || "Indisponível";
 
         const processedIncident = {
           external_id: incident.id.toString(),
@@ -327,7 +259,7 @@ Se o problema persistir, entre em contato com o suporte da API Fogo Cruzado.`
           latitude: incident.latitude ? parseFloat(incident.latitude) : null,
           longitude: incident.longitude ? parseFloat(incident.longitude) : null,
           address: incident.address || null,
-          neighborhood: incident.neighborhood?.name || null,
+          neighborhood: neighborhoodName,
           city: incident.city?.name || null,
           state: incident.state?.name || null,
           deaths: deaths,
@@ -349,85 +281,18 @@ Se o problema persistir, entre em contato com o suporte da API Fogo Cruzado.`
       }
     }
 
-    // Calcular índice de segurança por bairro
-    console.log('Calculating safety index by neighborhood...');
-    
-    const neighborhoodCrimeCount = new Map<string, number>();
-    
-    // Contar crimes por bairro
-    allOccurrences.forEach(incident => {
-      const neighborhood = incident.neighborhood?.name || 'Não especificado';
-      neighborhoodCrimeCount.set(neighborhood, (neighborhoodCrimeCount.get(neighborhood) || 0) + 1);
-    });
-
-    // Atualizar tabela safety_index
-    const safetyUpdates = [];
-    
-    for (const neighborhood of neighborhoodsData.data || []) {
-      const crimeCount = neighborhoodCrimeCount.get(neighborhood.name) || 0;
-      const safetyPercentage = calculateSafetyPercentage(crimeCount);
-      
-      // Tentar atualizar registro existente ou inserir novo
-      const { data: existingSafety } = await supabaseClient
-        .from('safety_index')
-        .select('id')
-        .eq('neighborhood', neighborhood.name)
-        .eq('city', 'Salvador')
-        .eq('state', 'BA')
-        .maybeSingle();
-
-      const safetyData = {
-        neighborhood: neighborhood.name,
-        city: 'Salvador',
-        state: 'BA',
-        latitude: neighborhood.latitude ? parseFloat(neighborhood.latitude) : null,
-        longitude: neighborhood.longitude ? parseFloat(neighborhood.longitude) : null,
-        safety_percentage: safetyPercentage,
-        crime_count: crimeCount,
-        last_calculated: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      if (existingSafety) {
-        // Atualizar
-        const { error } = await supabaseClient
-          .from('safety_index')
-          .update(safetyData)
-          .eq('id', existingSafety.id);
-          
-        if (error) {
-          console.error('Error updating safety data:', error);
-        }
-      } else {
-        // Inserir
-        const { error } = await supabaseClient
-          .from('safety_index')
-          .insert(safetyData);
-          
-        if (error) {
-          console.error('Error inserting safety data:', error);
-        }
-      }
-      
-      safetyUpdates.push({
-        neighborhood: neighborhood.name,
-        safety_percentage: safetyPercentage,
-        crime_count: crimeCount
-      });
-    }
-
-    console.log(`Safety index calculated for ${safetyUpdates.length} neighborhoods`);
+    // Não atualizar tabela safety_index por bairro, pois sem bairros não é possível granularidade correta
+    // Apenas log para debugging e mantenha o app funcionando
+    console.warn('[Fogo Cruzado Integration] Ignorando cálculo de safety_index por bairro devido à indisponibilidade dos dados de bairros.');
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Dados atualizados com sucesso! ${processedIncidents.length} novos incidentes e ${safetyUpdates.length} bairros atualizados.`,
+        message: `Dados atualizados (sem bairros). ${processedIncidents.length} novos incidentes salvos. O cálculo de safety_index por bairro foi pulado devido à ausência desse endpoint na API.`,
         data: {
           total_occurrences_fetched: allOccurrences.length,
           new_incidents: processedIncidents.length,
-          neighborhoods_updated: safetyUpdates.length,
-          period: `${startDate} até ${endDate}`,
-          safety_summary: safetyUpdates.slice(0, 10) // Primeiros 10 para resumo
+          period: `${startDate} até ${endDate}`
         }
       }),
       { 
