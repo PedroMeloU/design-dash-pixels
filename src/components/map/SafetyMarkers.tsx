@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { useFogoCruzadoData } from '@/hooks/useFogoCruzadoData';
@@ -76,10 +75,24 @@ export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData })
       map.removeSource(regionLayerIdRef.current);
     }
 
-    // Filtrar apenas dados com coordenadas válidas
-    const validSafetyData = safetyData.filter(data =>
-      data.latitude && data.longitude && !isNaN(data.latitude) && !isNaN(data.longitude)
-    );
+    // Novo filtro robusto: latitude/longitude válidos, diferentes de 0, não null, não string
+    const validSafetyData = safetyData.filter(data => {
+      const lat = typeof data.latitude === 'number' ? data.latitude : Number(data.latitude);
+      const lng = typeof data.longitude === 'number' ? data.longitude : Number(data.longitude);
+      const isValid =
+        lat !== undefined && lng !== undefined &&
+        !isNaN(lat) && !isNaN(lng) &&
+        lat !== 0 && lng !== 0 &&
+        Math.abs(lat) > 0.05 && Math.abs(lng) > 0.05;
+      if (!isValid) {
+        console.warn(
+          `[SafetyMarkers] Ignorando bairro "${data.neighborhood}" de "${data.city}" pois tem coordenadas inválidas (lat/lng:`, 
+          data.latitude, data.longitude, ')'
+        );
+      }
+      return isValid;
+    });
+
     if (validSafetyData.length === 0) {
       console.log('No valid safety data with coordinates found');
       return;
@@ -345,4 +358,3 @@ export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData })
 
   return null;
 };
-
