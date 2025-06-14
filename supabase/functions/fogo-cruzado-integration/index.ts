@@ -196,33 +196,55 @@ serve(async (req) => {
 
     console.log('Found Salvador city:', salvadorCity);
 
-    // Buscar bairros de Salvador - Priorizar cityId
+    // Buscar bairros de Salvador usando URL RESTful caso a query falhe
     console.log('Fetching neighborhoods data for Salvador...');
-    let neighborhoodsData;
-    const possibleParams = [
-      `cityId=${salvadorCity.id}`,
-      `city=${salvadorCity.id}`,
-      `idCity=${salvadorCity.id}`,
-      `id=${salvadorCity.id}`
-    ];
-    let triedParams = [];
-    for (let param of possibleParams) {
-      try {
-        neighborhoodsData = await fetchWithAuth(`https://api-service.fogocruzado.org.br/api/v2/neighborhoods?${param}`, token);
-        if (
-          neighborhoodsData.data && Array.isArray(neighborhoodsData.data) && neighborhoodsData.data.length > 0
-        ) {
-          console.log(`Successfully fetched neighborhoods using param: ${param}`);
-          break;
+    let neighborhoodsData = null;
+    let triedUrls = [];
+
+    // 1. Tentar padrão RESTful (mais provável!)
+    try {
+      const restNeighborhoodUrl = `https://api-service.fogocruzado.org.br/api/v2/cities/${salvadorCity.id}/neighborhoods`;
+      neighborhoodsData = await fetchWithAuth(restNeighborhoodUrl, token);
+      if (neighborhoodsData.data && Array.isArray(neighborhoodsData.data) && neighborhoodsData.data.length > 0) {
+        console.log(`Successfully fetched neighborhoods using RESTful route: ${restNeighborhoodUrl}`);
+      } else {
+        neighborhoodsData = null;
+        triedUrls.push(restNeighborhoodUrl);
+      }
+    } catch (e) {
+      console.error(`Attempt to fetch neighborhoods with RESTful route failed:`, e.message);
+      triedUrls.push(`RESTful: /cities/${salvadorCity.id}/neighborhoods`);
+    }
+
+    // 2. Se falhar, tentar via query string (padrões antigos)
+    if (!neighborhoodsData || !neighborhoodsData.data || neighborhoodsData.data.length === 0) {
+      const possibleParams = [
+        `cityId=${salvadorCity.id}`,
+        `city=${salvadorCity.id}`,
+        `idCity=${salvadorCity.id}`,
+        `id=${salvadorCity.id}`
+      ];
+
+      for (let param of possibleParams) {
+        try {
+          const url = `https://api-service.fogocruzado.org.br/api/v2/neighborhoods?${param}`;
+          const data = await fetchWithAuth(url, token);
+          if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+            neighborhoodsData = data;
+            console.log(`Successfully fetched neighborhoods using param: ${param}`);
+            break;
+          }
+        } catch (e) {
+          console.error(`Attempt to fetch neighborhoods with param "${param}" failed:`, e.message);
+          triedUrls.push(param);
         }
-      } catch (e) {
-        console.error(`Attempt to fetch neighborhoods with param "${param}" failed:`, e.message);
-        triedParams.push(param);
       }
     }
 
     if (!neighborhoodsData || !neighborhoodsData.data || neighborhoodsData.data.length === 0) {
-      throw new Error(`Falha ao buscar bairros. Parâmetros testados: ${triedParams.join(', ')}`);
+      throw new Error(
+        `Falha ao buscar bairros. URLs/parâmetros testados: ${triedUrls.join(', ')}`
+      );
     }
 
     // Definir período para buscar ocorrências (últimos 6 meses)
