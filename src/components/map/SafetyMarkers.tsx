@@ -1,11 +1,11 @@
-
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { useFogoCruzadoData } from '@/hooks/useFogoCruzadoData';
 import { getSafetyColor } from './getSafetyColor';
 import { getSafetyIcon } from './getSafetyIcon';
 import { getSafetyLabel } from './getSafetyLabel';
 import { useValidSafetyData } from './useValidSafetyData';
+import { SafetyMarkerModal } from './SafetyMarkerModal';
 
 interface SafetyData {
   neighborhood: string;
@@ -27,6 +27,10 @@ export const SafetyMarkers: React.FC<{
   const regionLayerIdRef = useRef<string | null>(null);
   const { incidents } = useFogoCruzadoData();
   const validSafetyData = useValidSafetyData(safetyData);
+  const [modalData, setModalData] = useState<null | {
+    data: SafetyData;
+    relatedIncidents: any[];
+  }>(null);
 
   useEffect(() => {
     if (!map) return;
@@ -206,75 +210,29 @@ export const SafetyMarkers: React.FC<{
           markerElement.style.transform = 'scale(1)';
         });
 
-        // Conteúdo do popup (inalterado)
-        let relatedIncidents = [];
-        if (incidents && Array.isArray(incidents)) {
-          relatedIncidents = incidents
-            .filter(inc =>
-              inc.neighborhood &&
-              data.neighborhood &&
-              inc.neighborhood.trim().toLocaleLowerCase() === data.neighborhood.trim().toLocaleLowerCase()
-            )
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-            .slice(0, 3);
-        }
+        // NOVO: Ao clicar, abre o modal centralizado
+        markerElement.addEventListener('click', (e) => {
+          e.stopPropagation();
+          let relatedIncidents: any[] = [];
+          if (incidents && Array.isArray(incidents)) {
+            relatedIncidents = incidents
+              .filter(inc =>
+                inc.neighborhood &&
+                data.neighborhood &&
+                inc.neighborhood.trim().toLocaleLowerCase() === data.neighborhood.trim().toLocaleLowerCase()
+              )
+              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+              .slice(0, 3);
+          }
+          setModalData({ data, relatedIncidents });
+        });
 
-        const popupContent = `
-          <div style="color: #000; max-width: 280px; padding: 8px;">
-            <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: ${color};">
-              ${icon} ${data.neighborhood}
-            </h3>
-            <div style="font-size: 13px; line-height: 1.5;">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                <span style="font-weight: 500;">Índice de Segurança:</span>
-                <span style="color: ${color}; font-weight: 600;">${data.safety_percentage.toFixed(1)}%</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                <span style="font-weight: 500;">Classificação:</span>
-                <span style="color: ${color}; font-weight: 600;">${label}</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                <span style="font-weight: 500;">Ocorrências (6 meses):</span>
-                <span>${data.crime_count}</span>
-              </div>
-              <div style="font-size: 11px; color: #666; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee;">
-                Última atualização: ${new Date(data.last_calculated).toLocaleDateString('pt-BR')}
-              </div>
-            </div>
-            ${relatedIncidents.length > 0 ? `
-              <div style="font-size:12px;margin-top:8px">
-                <strong>Ocorrências recentes:</strong>
-                <ul style="padding-left:16px; margin: 6px 0 0 0;">
-                  ${relatedIncidents
-                    .map(inc =>
-                      `<li>
-                        <span title="${new Date(inc.date).toLocaleString('pt-BR')}">
-                          ${new Date(inc.date).toLocaleDateString('pt-BR')}
-                        </span>
-                        - ${inc.incident_type}${inc.deaths ? `, <span style="color:#DC2626">Mortes:${inc.deaths}</span>` : ''}
-                        ${inc.wounded ? `, <span style="color:#EA580C">Feridos:${inc.wounded}</span>` : ''}
-                      </li>`
-                    ).join('')}
-                </ul>
-              </div>
-            ` : ''}
-          </div>
-        `;
-
+        // Não adiciona mais o Popup no marcador
         const marker = new mapboxgl.Marker({
           element: markerElement,
           anchor: 'center'
         })
           .setLngLat([data.longitude, data.latitude])
-          .setPopup(
-            new mapboxgl.Popup({
-              offset: 25,
-              className: 'safety-popup',
-              maxWidth: '320px',
-              closeButton: true,
-              closeOnClick: false
-            }).setHTML(popupContent)
-          )
           .addTo(map);
 
         markersRef.current.push(marker);
@@ -303,5 +261,15 @@ export const SafetyMarkers: React.FC<{
     };
   }, [map, validSafetyData, incidents]);
 
-  return null;
+  // Renderiza o modal centralizado, visível se modalData for não nulo
+  return (
+    <>
+      <SafetyMarkerModal
+        open={!!modalData}
+        data={modalData?.data || null}
+        relatedIncidents={modalData?.relatedIncidents || []}
+        onClose={() => setModalData(null)}
+      />
+    </>
+  );
 };
