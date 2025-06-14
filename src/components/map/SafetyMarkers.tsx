@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { useFogoCruzadoData } from '@/hooks/useFogoCruzadoData';
@@ -21,7 +22,7 @@ export const SafetyMarkers: React.FC<{
   map: mapboxgl.Map | null;
   safetyData: SafetyData[];
 }> = ({ map, safetyData }) => {
-  const markersRef = useRef<{ marker: mapboxgl.Marker; minZoom: number; lng: number; lat: number }[]>([]);
+  const markersRef = useRef<mapboxgl.Marker[]>([]);
   const layerIdRef = useRef<string | null>(null);
   const regionLayerIdRef = useRef<string | null>(null);
   const { incidents } = useFogoCruzadoData();
@@ -31,7 +32,7 @@ export const SafetyMarkers: React.FC<{
     if (!map) return;
 
     // Remover marcadores e layers existentes
-    markersRef.current.forEach(({ marker }) => marker.remove());
+    markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
     if (layerIdRef.current && map.getLayer(layerIdRef.current)) {
       map.removeLayer(layerIdRef.current);
@@ -163,136 +164,132 @@ export const SafetyMarkers: React.FC<{
       }
     });
 
-    // --- MARCADORES ---
-    const minZoom = 13;
-    validSafetyData.forEach(data => {
-      if (!data.latitude || !data.longitude) return;
-      const color = getSafetyColor(data.safety_percentage);
-      const icon = getSafetyIcon(data.safety_percentage);
-      const label = getSafetyLabel(data.safety_percentage);
-      const markerElement = document.createElement('div');
-      markerElement.className = 'safety-marker';
-      markerElement.style.cssText = `
-        width: 35px;
-        height: 35px;
-        background: ${color};
-        border: 3px solid white;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 14px;
-        box-shadow: 0 3px 12px rgba(0,0,0,0.4);
-        cursor: pointer;
-        position: relative;
-        transition: transform 0.2s ease;
-      `;
-      markerElement.innerHTML = icon;
-      markerElement.addEventListener('mouseenter', () => {
-        markerElement.style.transform = 'scale(1.2)';
-      });
-      markerElement.addEventListener('mouseleave', () => {
-        markerElement.style.transform = 'scale(1)';
-      });
+    // Função para (re)criar TODOS os marcadores apenas se o zoom for suficiente
+    const placeSafetyMarkers = () => {
+      // Remove todos antigos (se existirem)
+      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current = [];
 
-      // Conteúdo do popup (inalterado)
-      let relatedIncidents = [];
-      if (incidents && Array.isArray(incidents)) {
-        relatedIncidents = incidents
-          .filter(inc =>
-            inc.neighborhood &&
-            data.neighborhood &&
-            inc.neighborhood.trim().toLocaleLowerCase() === data.neighborhood.trim().toLocaleLowerCase()
-          )
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-          .slice(0, 3);
-      }
-
-      const popupContent = `
-        <div style="color: #000; max-width: 280px; padding: 8px;">
-          <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: ${color};">
-            ${icon} ${data.neighborhood}
-          </h3>
-          <div style="font-size: 13px; line-height: 1.5;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-              <span style="font-weight: 500;">Índice de Segurança:</span>
-              <span style="color: ${color}; font-weight: 600;">${data.safety_percentage.toFixed(1)}%</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-              <span style="font-weight: 500;">Classificação:</span>
-              <span style="color: ${color}; font-weight: 600;">${label}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-              <span style="font-weight: 500;">Ocorrências (6 meses):</span>
-              <span>${data.crime_count}</span>
-            </div>
-            <div style="font-size: 11px; color: #666; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee;">
-              Última atualização: ${new Date(data.last_calculated).toLocaleDateString('pt-BR')}
-            </div>
-          </div>
-          ${relatedIncidents.length > 0 ? `
-            <div style="font-size:12px;margin-top:8px">
-              <strong>Ocorrências recentes:</strong>
-              <ul style="padding-left:16px; margin: 6px 0 0 0;">
-                ${relatedIncidents
-                  .map(inc =>
-                    `<li>
-                      <span title="${new Date(inc.date).toLocaleString('pt-BR')}">
-                        ${new Date(inc.date).toLocaleDateString('pt-BR')}
-                      </span>
-                      - ${inc.incident_type}${inc.deaths ? `, <span style="color:#DC2626">Mortes:${inc.deaths}</span>` : ''}
-                      ${inc.wounded ? `, <span style="color:#EA580C">Feridos:${inc.wounded}</span>` : ''}
-                    </li>`
-                  ).join('')}
-              </ul>
-            </div>
-          ` : ''}
-        </div>
-      `;
-
-      const marker = new mapboxgl.Marker({
-        element: markerElement,
-        anchor: 'center'
-      })
-        .setLngLat([data.longitude, data.latitude])
-        .setPopup(
-          new mapboxgl.Popup({
-            offset: 25,
-            className: 'safety-popup',
-            maxWidth: '320px',
-            closeButton: true,
-            closeOnClick: false
-          }).setHTML(popupContent)
-        );
-
-      markersRef.current.push({ marker, minZoom, lng: data.longitude, lat: data.latitude });
-    });
-
-    // Função para adicionar/remover markers do mapa conforme o zoom
-    const updateMarkersOnZoom = () => {
-      if (!map) return;
       const zoom = map.getZoom();
-      markersRef.current.forEach(({ marker, minZoom, lng, lat }) => {
-        if (zoom >= minZoom) {
-          if (!marker.getElement().parentElement) {
-            marker.setLngLat([lng, lat]);
-            marker.addTo(map);
-          }
-        } else {
-          marker.remove();
+      const minZoom = 13;
+
+      if (zoom < minZoom) return; // Não mostra markers se não for o zoom desejado
+
+      validSafetyData.forEach(data => {
+        if (!data.latitude || !data.longitude) return;
+        const color = getSafetyColor(data.safety_percentage);
+        const icon = getSafetyIcon(data.safety_percentage);
+        const label = getSafetyLabel(data.safety_percentage);
+
+        const markerElement = document.createElement('div');
+        markerElement.className = 'safety-marker';
+        markerElement.style.cssText = `
+          width: 35px;
+          height: 35px;
+          background: ${color};
+          border: 3px solid white;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 14px;
+          box-shadow: 0 3px 12px rgba(0,0,0,0.4);
+          cursor: pointer;
+          position: relative;
+          transition: transform 0.2s ease;
+        `;
+        markerElement.innerHTML = icon;
+        markerElement.addEventListener('mouseenter', () => {
+          markerElement.style.transform = 'scale(1.2)';
+        });
+        markerElement.addEventListener('mouseleave', () => {
+          markerElement.style.transform = 'scale(1)';
+        });
+
+        // Conteúdo do popup (inalterado)
+        let relatedIncidents = [];
+        if (incidents && Array.isArray(incidents)) {
+          relatedIncidents = incidents
+            .filter(inc =>
+              inc.neighborhood &&
+              data.neighborhood &&
+              inc.neighborhood.trim().toLocaleLowerCase() === data.neighborhood.trim().toLocaleLowerCase()
+            )
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .slice(0, 3);
         }
+
+        const popupContent = `
+          <div style="color: #000; max-width: 280px; padding: 8px;">
+            <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: ${color};">
+              ${icon} ${data.neighborhood}
+            </h3>
+            <div style="font-size: 13px; line-height: 1.5;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-weight: 500;">Índice de Segurança:</span>
+                <span style="color: ${color}; font-weight: 600;">${data.safety_percentage.toFixed(1)}%</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-weight: 500;">Classificação:</span>
+                <span style="color: ${color}; font-weight: 600;">${label}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-weight: 500;">Ocorrências (6 meses):</span>
+                <span>${data.crime_count}</span>
+              </div>
+              <div style="font-size: 11px; color: #666; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee;">
+                Última atualização: ${new Date(data.last_calculated).toLocaleDateString('pt-BR')}
+              </div>
+            </div>
+            ${relatedIncidents.length > 0 ? `
+              <div style="font-size:12px;margin-top:8px">
+                <strong>Ocorrências recentes:</strong>
+                <ul style="padding-left:16px; margin: 6px 0 0 0;">
+                  ${relatedIncidents
+                    .map(inc =>
+                      `<li>
+                        <span title="${new Date(inc.date).toLocaleString('pt-BR')}">
+                          ${new Date(inc.date).toLocaleDateString('pt-BR')}
+                        </span>
+                        - ${inc.incident_type}${inc.deaths ? `, <span style="color:#DC2626">Mortes:${inc.deaths}</span>` : ''}
+                        ${inc.wounded ? `, <span style="color:#EA580C">Feridos:${inc.wounded}</span>` : ''}
+                      </li>`
+                    ).join('')}
+                </ul>
+              </div>
+            ` : ''}
+          </div>
+        `;
+
+        const marker = new mapboxgl.Marker({
+          element: markerElement,
+          anchor: 'center'
+        })
+          .setLngLat([data.longitude, data.latitude])
+          .setPopup(
+            new mapboxgl.Popup({
+              offset: 25,
+              className: 'safety-popup',
+              maxWidth: '320px',
+              closeButton: true,
+              closeOnClick: false
+            }).setHTML(popupContent)
+          )
+          .addTo(map);
+
+        markersRef.current.push(marker);
       });
     };
 
-    // Exibe pela primeira vez
-    updateMarkersOnZoom();
+    // Exibe os marcadores inicialmente
+    placeSafetyMarkers();
 
-    // Atualiza ao fazer zoom
-    map.on('zoom', updateMarkersOnZoom);
+    // Atualiza marcadores de acordo com o zoom usando placeSafetyMarkers
+    map.on('zoom', placeSafetyMarkers);
 
-    // Cleanup
+    // Cleanup: remove marcadores, layers e event listener de zoom
     return () => {
-      markersRef.current.forEach(({ marker }) => marker.remove());
+      markersRef.current.forEach(marker => marker.remove());
       markersRef.current = [];
       if (layerIdRef.current && map.getLayer(layerIdRef.current)) {
         map.removeLayer(layerIdRef.current);
@@ -302,9 +299,7 @@ export const SafetyMarkers: React.FC<{
         map.removeLayer(regionLayerIdRef.current);
         map.removeSource(regionLayerIdRef.current);
       }
-      if (map && updateMarkersOnZoom) {
-        map.off('zoom', updateMarkersOnZoom);
-      }
+      map.off('zoom', placeSafetyMarkers);
     };
   }, [map, validSafetyData, incidents]);
 
