@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { useFogoCruzadoData } from '@/hooks/useFogoCruzadoData';
@@ -17,40 +18,23 @@ interface SafetyData {
   longitude?: number;
 }
 
-interface Incident {
-  id: string;
-  incident_type: string;
-  date: string;
-  latitude: number | null;
-  longitude: number | null;
-  address: string | null;
-  neighborhood: string | null;
-  deaths: number;
-  wounded: number;
-  description: string | null;
-}
-
-interface SafetyMarkersProps {
+export const SafetyMarkers: React.FC<{
   map: mapboxgl.Map | null;
   safetyData: SafetyData[];
-}
-
-export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData }) => {
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
+}> = ({ map, safetyData }) => {
+  const markersRef = useRef<{ marker: mapboxgl.Marker; minZoom: number }[]>([]);
   const layerIdRef = useRef<string | null>(null);
   const regionLayerIdRef = useRef<string | null>(null);
 
-  // Use incidents data to show related occurrences in popups
   const { incidents } = useFogoCruzadoData();
 
-  // Usa hook para filtrar dados com coordenadas válidas
   const validSafetyData = useValidSafetyData(safetyData);
 
   useEffect(() => {
     if (!map) return;
 
     // Remover marcadores e layers existentes
-    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current.forEach(({ marker }) => marker.remove());
     markersRef.current = [];
     if (layerIdRef.current && map.getLayer(layerIdRef.current)) {
       map.removeLayer(layerIdRef.current);
@@ -66,7 +50,7 @@ export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData })
       return;
     }
 
-    // 1. Região colorida
+    // Região colorida (inalterado)
     const regionLayerId = `safety-region-fill-${Date.now()}`;
     regionLayerIdRef.current = regionLayerId;
     const regionsGeoJson = {
@@ -110,7 +94,7 @@ export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData })
       filter: ['!', ['has', 'point_count']],
     });
 
-    // 2. Heatmap
+    // Heatmap (inalterado)
     const layerId = `safety-heatmap-${Date.now()}`;
     layerIdRef.current = layerId;
     const heatmapData = {
@@ -182,7 +166,11 @@ export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData })
       }
     });
 
-    // 3. Marcadores de segurança
+    // --- MARCADORES ---
+
+    // Definir o zoom mínimo para mostrar marcadores (EX: > 12)
+    const minZoom = 13;
+
     validSafetyData.forEach(data => {
       if (!data.latitude || !data.longitude) return;
 
@@ -217,7 +205,7 @@ export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData })
         markerElement.style.transform = 'scale(1)';
       });
 
-      // Conteúdo do popup
+      // Conteúdo do popup (inalterado)
       let relatedIncidents = [];
       if (incidents && Array.isArray(incidents)) {
         relatedIncidents = incidents
@@ -272,7 +260,7 @@ export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData })
         </div>
       `;
 
-      // Criar marcador
+      // Criar marcador -- só adiciona se zoom > minZoom
       const marker = new mapboxgl.Marker({
         element: markerElement,
         anchor: 'center'
@@ -288,25 +276,35 @@ export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData })
         }).setHTML(popupContent)
       );
 
-      // Mostrar marcador apenas em zoom alto
-      const updateMarkerVisibility = () => {
-        const zoom = map.getZoom();
-        if (zoom > 12) {
-          marker.addTo(map);
-        } else {
-          marker.remove();
-        }
-      };
-
-      updateMarkerVisibility();
-      map.on('zoom', updateMarkerVisibility);
-
-      markersRef.current.push(marker);
+      // Salva o marcador + minZoom, mas NÃO adiciona/remover múltiplas vezes depois!
+      markersRef.current.push({ marker, minZoom });
     });
+
+    // Função que atualiza a visibilidade dos marcadores sem re-adicioná-los/removê-los constantemente
+    const updateAllMarkers = () => {
+      if (!map) return;
+      const zoom = map.getZoom();
+      markersRef.current.forEach(({ marker, minZoom }) => {
+        if (zoom >= minZoom) {
+          if (!marker.getElement().parentElement) {
+            marker.addTo(map);
+          }
+          marker.getElement().style.display = 'flex';
+        } else {
+          marker.getElement().style.display = 'none';
+        }
+      });
+    };
+
+    // Chama na montagem
+    updateAllMarkers();
+
+    // Atualiza apenas display no zoom, sem remover/adicionar marker do mapa!
+    map.on('zoom', updateAllMarkers);
 
     // Cleanup
     return () => {
-      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current.forEach(({ marker }) => marker.remove());
       markersRef.current = [];
       if (layerIdRef.current && map.getLayer(layerIdRef.current)) {
         map.removeLayer(layerIdRef.current);
@@ -315,6 +313,9 @@ export const SafetyMarkers: React.FC<SafetyMarkersProps> = ({ map, safetyData })
       if (regionLayerIdRef.current && map.getLayer(regionLayerIdRef.current)) {
         map.removeLayer(regionLayerIdRef.current);
         map.removeSource(regionLayerIdRef.current);
+      }
+      if (map && updateAllMarkers) {
+        map.off('zoom', updateAllMarkers);
       }
     };
   }, [map, validSafetyData, incidents]);
