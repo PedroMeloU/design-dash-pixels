@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { InteractiveMap } from '@/components/map/InteractiveMap';
 import { BottomNavigation } from '@/components/navigation/BottomNavigation';
@@ -6,6 +5,7 @@ import { SearchHeader } from '@/components/search/SearchHeader';
 import { UpdateDataButton } from '@/components/map/UpdateDataButton';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useFogoCruzadoData } from '@/hooks/useFogoCruzadoData';
+import { AutoIncidentConfirmation } from '@/components/reports/AutoIncidentConfirmation';
 
 const Dashboard: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -25,6 +25,7 @@ const Dashboard: React.FC = () => {
   
   return (
     <main className="relative h-screen w-full overflow-hidden bg-gray-100">
+      <AutoIncidentConfirmation />
       <div className="absolute inset-0">
         <InteractiveMap selectedLocation={selectedLocation} />
       </div>

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 
@@ -13,6 +12,9 @@ interface Incident {
   deaths: number;
   wounded: number;
   description: string | null;
+  // Novos campos possíveis, para tipos diferentes de incidentes
+  // status?: string; -> NÃO está incluído nos incidents do API antigo (apenas em crime_reports)
+  // user_id?: string;
 }
 
 interface IncidentMarkersProps {
@@ -36,20 +38,25 @@ const getIncidentIcon = (incidentType: string, deaths: number) => {
   return '⚠️';
 };
 
-// Função para validar coordenadas
 const isValidCoordinate = (lat: number | null, lng: number | null): boolean => {
   if (lat === null || lng === null) return false;
-  
-  // Verificar se as coordenadas são números válidos
   if (isNaN(lat) || isNaN(lng)) return false;
-  
-  // Verificar se não são coordenadas [0, 0] ou muito próximas
   if (Math.abs(lat) < 0.001 && Math.abs(lng) < 0.001) return false;
-  
-  // Verificar se estão dentro dos limites razoáveis do Brasil
-  // Brasil: aproximadamente lat -33 a 5, lng -74 a -34
   if (lat < -35 || lat > 7 || lng < -76 || lng > -30) return false;
-  
+  return true;
+};
+
+/**
+ * Função para determinar quais ocorrências devem ser exibidas no mapa.
+ * Apenas reports "confirmados" (status === "Confirmada").
+ * Para os incidentes externos (sem campo status), manter regra anterior.
+ */
+const shouldShowOnMap = (incident: any): boolean => {
+  // Reporte do usuário comum (crime_reports): só exibe se status === "Confirmada"
+  if (Object.prototype.hasOwnProperty.call(incident, 'status')) {
+    return incident.status === 'Confirmada';
+  }
+  // Incidentes externos, por padrão sempre aparecem
   return true;
 };
 
@@ -59,23 +66,20 @@ export const IncidentMarkers: React.FC<IncidentMarkersProps> = ({ map, incidents
   useEffect(() => {
     if (!map) return;
 
-    // Remove existing markers
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
 
-    // Filtrar incidentes com coordenadas válidas
-    const validIncidents = incidents.filter(incident => 
-      isValidCoordinate(incident.latitude, incident.longitude)
+    // Só mostra os incidentes que devem aparecer no mapa
+    const validIncidents = incidents.filter(
+      (incident) =>
+        isValidCoordinate(incident.latitude, incident.longitude) && shouldShowOnMap(incident)
     );
 
     console.log(`Total incidents: ${incidents.length}, Valid incidents: ${validIncidents.length}`);
 
-    // Add new markers for valid incidents
     validIncidents.forEach(incident => {
       const color = getIncidentColor(incident.incident_type, incident.deaths, incident.wounded);
       const icon = getIncidentIcon(incident.incident_type, incident.deaths);
-
-      // Create marker element
       const markerElement = document.createElement('div');
       markerElement.className = 'incident-marker';
       markerElement.style.cssText = `
@@ -95,13 +99,10 @@ export const IncidentMarkers: React.FC<IncidentMarkersProps> = ({ map, incidents
       `;
       markerElement.innerHTML = icon;
 
-      // Add pulse animation for recent incidents (last 7 days)
       const incidentDate = new Date(incident.date);
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      
       if (incidentDate > sevenDaysAgo) {
         markerElement.style.animation = 'pulse 2s infinite';
-        // Criar estilo de animação apenas uma vez
         if (!document.getElementById('incident-pulse-style')) {
           const style = document.createElement('style');
           style.id = 'incident-pulse-style';
@@ -116,7 +117,6 @@ export const IncidentMarkers: React.FC<IncidentMarkersProps> = ({ map, incidents
         }
       }
 
-      // Create popup content
       const popupContent = `
         <div style="color: #000; max-width: 250px;">
           <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">
@@ -134,15 +134,14 @@ export const IncidentMarkers: React.FC<IncidentMarkersProps> = ({ map, incidents
         </div>
       `;
 
-      // Create marker with fixed position
       const marker = new mapboxgl.Marker({
         element: markerElement,
         anchor: 'center',
-        draggable: false // Garantir que o marcador não seja arrastável
+        draggable: false
       })
       .setLngLat([incident.longitude!, incident.latitude!])
       .setPopup(
-        new mapboxgl.Popup({ 
+        new mapboxgl.Popup({
           offset: 25,
           className: 'incident-popup',
           maxWidth: '300px',

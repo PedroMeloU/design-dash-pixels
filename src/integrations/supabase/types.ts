@@ -20,6 +20,7 @@ export type Database = {
           longitude: number
           neighborhood: string | null
           occurred_at: string
+          status: string
           updated_at: string
           user_id: string | null
         }
@@ -33,6 +34,7 @@ export type Database = {
           longitude: number
           neighborhood?: string | null
           occurred_at?: string
+          status?: string
           updated_at?: string
           user_id?: string | null
         }
@@ -46,6 +48,7 @@ export type Database = {
           longitude?: number
           neighborhood?: string | null
           occurred_at?: string
+          status?: string
           updated_at?: string
           user_id?: string | null
         }

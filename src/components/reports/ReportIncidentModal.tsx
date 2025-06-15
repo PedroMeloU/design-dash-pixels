@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -102,7 +101,7 @@ export const ReportIncidentModal: React.FC<ReportIncidentModalProps> = ({ isOpen
         });
         return;
       }
-
+      // Sempre definir status como "Em apuração" ao criar ocorrência
       const { error } = await supabase.from('crime_reports').insert({
         user_id: user.user.id,
         crime_type: formData.crime_type as CrimeType,
@@ -111,14 +110,13 @@ export const ReportIncidentModal: React.FC<ReportIncidentModalProps> = ({ isOpen
         longitude: userLocation.lng,
         address: formData.address,
         neighborhood: formData.neighborhood,
-        occurred_at: formData.occurred_at
+        occurred_at: formData.occurred_at,
+        status: 'Em apuração',
       });
-
       if (error) throw error;
-
       toast({
         title: "Relatório enviado",
-        description: "Seu relatório foi enviado com sucesso e ajudará a melhorar a segurança da região."
+        description: "Seu relatório foi publicado e aparecerá em apuração no feed.",
       });
 
       setFormData({
@@ -126,7 +124,7 @@ export const ReportIncidentModal: React.FC<ReportIncidentModalProps> = ({ isOpen
         description: '',
         address: '',
         neighborhood: '',
-        occurred_at: new Date().toISOString().slice(0, 16)
+        occurred_at: new Date().toISOString().slice(0, 16),
       });
       setUserLocation(null);
       onClose();
