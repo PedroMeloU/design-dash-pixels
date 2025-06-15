@@ -36,6 +36,23 @@ const getIncidentIcon = (incidentType: string, deaths: number) => {
   return '⚠️';
 };
 
+// Função para validar coordenadas
+const isValidCoordinate = (lat: number | null, lng: number | null): boolean => {
+  if (lat === null || lng === null) return false;
+  
+  // Verificar se as coordenadas são números válidos
+  if (isNaN(lat) || isNaN(lng)) return false;
+  
+  // Verificar se não são coordenadas [0, 0] ou muito próximas
+  if (Math.abs(lat) < 0.001 && Math.abs(lng) < 0.001) return false;
+  
+  // Verificar se estão dentro dos limites razoáveis do Brasil
+  // Brasil: aproximadamente lat -33 a 5, lng -74 a -34
+  if (lat < -35 || lat > 7 || lng < -76 || lng > -30) return false;
+  
+  return true;
+};
+
 export const IncidentMarkers: React.FC<IncidentMarkersProps> = ({ map, incidents }) => {
   const markersRef = useRef<mapboxgl.Marker[]>([]);
 
@@ -46,10 +63,15 @@ export const IncidentMarkers: React.FC<IncidentMarkersProps> = ({ map, incidents
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
 
-    // Add new markers for incidents
-    incidents.forEach(incident => {
-      if (!incident.latitude || !incident.longitude) return;
+    // Filtrar incidentes com coordenadas válidas
+    const validIncidents = incidents.filter(incident => 
+      isValidCoordinate(incident.latitude, incident.longitude)
+    );
 
+    console.log(`Total incidents: ${incidents.length}, Valid incidents: ${validIncidents.length}`);
+
+    // Add new markers for valid incidents
+    validIncidents.forEach(incident => {
       const color = getIncidentColor(incident.incident_type, incident.deaths, incident.wounded);
       const icon = getIncidentIcon(incident.incident_type, incident.deaths);
 
@@ -69,6 +91,7 @@ export const IncidentMarkers: React.FC<IncidentMarkersProps> = ({ map, incidents
         box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         cursor: pointer;
         position: relative;
+        z-index: 1;
       `;
       markerElement.innerHTML = icon;
 
@@ -78,15 +101,19 @@ export const IncidentMarkers: React.FC<IncidentMarkersProps> = ({ map, incidents
       
       if (incidentDate > sevenDaysAgo) {
         markerElement.style.animation = 'pulse 2s infinite';
-        const style = document.createElement('style');
-        style.textContent = `
-          @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 ${color}80; }
-            70% { box-shadow: 0 0 0 10px ${color}00; }
-            100% { box-shadow: 0 0 0 0 ${color}00; }
-          }
-        `;
-        document.head.appendChild(style);
+        // Criar estilo de animação apenas uma vez
+        if (!document.getElementById('incident-pulse-style')) {
+          const style = document.createElement('style');
+          style.id = 'incident-pulse-style';
+          style.textContent = `
+            @keyframes pulse {
+              0% { box-shadow: 0 0 0 0 ${color}80; }
+              70% { box-shadow: 0 0 0 10px ${color}00; }
+              100% { box-shadow: 0 0 0 0 ${color}00; }
+            }
+          `;
+          document.head.appendChild(style);
+        }
       }
 
       // Create popup content
@@ -97,6 +124,7 @@ export const IncidentMarkers: React.FC<IncidentMarkersProps> = ({ map, incidents
           </h3>
           <div style="font-size: 12px; line-height: 1.4;">
             <p style="margin: 4px 0;"><strong>Data:</strong> ${new Date(incident.date).toLocaleDateString('pt-BR')}</p>
+            <p style="margin: 4px 0;"><strong>Coordenadas:</strong> ${incident.latitude!.toFixed(4)}, ${incident.longitude!.toFixed(4)}</p>
             ${incident.neighborhood ? `<p style="margin: 4px 0;"><strong>Bairro:</strong> ${incident.neighborhood}</p>` : ''}
             ${incident.address ? `<p style="margin: 4px 0;"><strong>Endereço:</strong> ${incident.address}</p>` : ''}
             ${incident.deaths > 0 ? `<p style="margin: 4px 0; color: #DC2626;"><strong>Mortes:</strong> ${incident.deaths}</p>` : ''}
@@ -106,17 +134,20 @@ export const IncidentMarkers: React.FC<IncidentMarkersProps> = ({ map, incidents
         </div>
       `;
 
-      // Create marker
+      // Create marker with fixed position
       const marker = new mapboxgl.Marker({
         element: markerElement,
-        anchor: 'center'
+        anchor: 'center',
+        draggable: false // Garantir que o marcador não seja arrastável
       })
-      .setLngLat([incident.longitude, incident.latitude])
+      .setLngLat([incident.longitude!, incident.latitude!])
       .setPopup(
         new mapboxgl.Popup({ 
           offset: 25,
           className: 'incident-popup',
-          maxWidth: '300px'
+          maxWidth: '300px',
+          closeButton: true,
+          closeOnClick: true
         }).setHTML(popupContent)
       )
       .addTo(map);
