@@ -1,11 +1,13 @@
-
-import React, { useState } from 'react';
-import { Search as SearchIcon, MapPin, Clock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search as SearchIcon, MapPin, Clock, Star, Navigation } from 'lucide-react';
 import { BottomNavigation } from '@/components/navigation/BottomNavigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { searchPlaces } from '@/services/searchService';
 import { useGeolocation } from '@/hooks/useGeolocation';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 interface SearchResult {
   id: string;
@@ -14,16 +16,54 @@ interface SearchResult {
   place_type: string[];
 }
 
+interface SearchHistory {
+  id: string;
+  query: string;
+  place_name: string;
+  latitude: number;
+  longitude: number;
+  searched_at: string;
+}
+
 const Search: React.FC = () => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [recentSearches] = useState<string[]>([
-    'Centro, São Paulo',
-    'Avenida Paulista',
-    'Terminal Rodoviário'
-  ]);
+  const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
   const location = useGeolocation();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const fetchSearchHistory = async () => {
+    if (!user) return;
+    
+    const { data, error } = await supabase
+      .from('search_history')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('searched_at', { ascending: false })
+      .limit(10);
+    
+    if (!error && data) {
+      setSearchHistory(data);
+    }
+  };
+
+  const saveToHistory = async (result: SearchResult) => {
+    if (!user) return;
+
+    await supabase
+      .from('search_history')
+      .insert({
+        user_id: user.id,
+        query: query,
+        place_name: result.place_name,
+        latitude: result.center[1],
+        longitude: result.center[0]
+      });
+    
+    fetchSearchHistory();
+  };
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -43,10 +83,48 @@ const Search: React.FC = () => {
     }
   };
 
-  const handleResultClick = (result: SearchResult) => {
+  const handleResultClick = async (result: SearchResult) => {
     console.log('Local selecionado:', result);
-    // Aqui você pode navegar para o mapa ou fazer algo com o resultado
+    await saveToHistory(result);
+    
+    // Navegar para o dashboard com a localização selecionada
+    navigate('/dashboard', { 
+      state: { 
+        selectedLocation: {
+          center: result.center,
+          name: result.place_name
+        }
+      }
+    });
   };
+
+  const handleHistoryClick = (historyItem: SearchHistory) => {
+    navigate('/dashboard', { 
+      state: { 
+        selectedLocation: {
+          center: [historyItem.longitude, historyItem.latitude] as [number, number],
+          name: historyItem.place_name
+        }
+      }
+    });
+  };
+
+  const getCurrentLocation = () => {
+    if (location.latitude && location.longitude) {
+      navigate('/dashboard', { 
+        state: { 
+          selectedLocation: {
+            center: [location.longitude, location.latitude] as [number, number],
+            name: 'Sua localização atual'
+          }
+        }
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchSearchHistory();
+  }, [user]);
 
   return (
     <main className="h-screen w-full bg-[#F5F7FA] flex flex-col">
@@ -55,6 +133,20 @@ const Search: React.FC = () => {
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-[#1F3C88] mb-2">Buscar Localização</h1>
           <p className="text-gray-600">Encontre endereços, pontos de referência e locais</p>
+        </div>
+
+        {/* Current Location Button */}
+        <div className="mb-4">
+          <Button
+            onClick={getCurrentLocation}
+            disabled={!location.latitude || !location.longitude}
+            className="w-full bg-green-600 hover:bg-green-700 text-white h-12"
+          >
+            <Navigation size={20} className="mr-2" />
+            {location.latitude && location.longitude 
+              ? 'Usar Minha Localização Atual' 
+              : 'Obtendo localização...'}
+          </Button>
         </div>
 
         {/* Search Input */}
@@ -105,27 +197,46 @@ const Search: React.FC = () => {
           </div>
         )}
 
-        {/* Recent Searches */}
-        {results.length === 0 && (
+        {/* Search History */}
+        {results.length === 0 && searchHistory.length > 0 && (
           <div>
             <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
               <Clock size={20} />
               Buscas Recentes
             </h2>
             <div className="space-y-2">
-              {recentSearches.map((search, index) => (
+              {searchHistory.map((item) => (
                 <button
-                  key={index}
-                  onClick={() => setQuery(search)}
+                  key={item.id}
+                  onClick={() => handleHistoryClick(item)}
                   className="w-full p-4 bg-white rounded-lg border border-gray-200 hover:border-[#1F3C88] hover:bg-blue-50 transition-colors text-left"
                 >
-                  <div className="flex items-center gap-3">
-                    <Clock className="text-gray-400" size={16} />
-                    <span className="text-gray-900">{search}</span>
+                  <div className="flex items-start gap-3">
+                    <Clock className="text-gray-400 mt-1 flex-shrink-0" size={16} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 truncate">{item.place_name}</p>
+                      <p className="text-sm text-gray-500 truncate">
+                        Buscado: "{item.query}"
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {new Date(item.searched_at).toLocaleString('pt-BR')}
+                      </p>
+                    </div>
                   </div>
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {results.length === 0 && searchHistory.length === 0 && !query && (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <SearchIcon size={48} className="text-gray-300 mb-4" />
+            <h2 className="text-lg font-semibold text-gray-600 mb-2">Comece sua busca</h2>
+            <p className="text-gray-500 max-w-sm">
+              Digite o nome de um local, endereço ou ponto de referência para encontrar informações de segurança
+            </p>
           </div>
         )}
       </div>
@@ -136,3 +247,4 @@ const Search: React.FC = () => {
 };
 
 export default Search;
+
